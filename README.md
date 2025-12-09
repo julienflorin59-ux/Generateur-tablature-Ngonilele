@@ -2,6 +2,10 @@
 
 Application web pour générer, éditer et visualiser des tablatures pour le Ngonilélé.
 
+## État du projet
+
+**Note importante :** Si vous rencontrez des erreurs lors de l'envoi vers GitHub, assurez-vous que le fichier `.gitignore` est bien présent pour exclure le dossier `node_modules`.
+
 ## Fonctionnalités
 
 - Éditeur de tablature interactif
