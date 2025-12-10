@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { STRING_CONFIGS, NOTE_COLORS } from '../constants';
 import { Tuning } from '../types';
@@ -7,9 +8,10 @@ interface StringPadProps {
   tuning: Tuning;
   fingeringMode: 'auto' | 'manual';
   activeStringId?: string | null;
+  playbackFeedback?: Record<string, number>; // New prop: StringID -> Duration (ticks)
 }
 
-const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, activeStringId }) => {
+const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, activeStringId, playbackFeedback = {} }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -107,6 +109,20 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
       if (timerRef.current) clearTimeout(timerRef.current);
   };
 
+  // Helper for playback highlighting
+  const getHighlightStyle = (isActive: boolean) => {
+      if (!isActive) return {};
+      return {
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          boxShadow: '0 0 15px 5px rgba(255, 255, 255, 0.8)',
+          borderColor: '#fff',
+          zIndex: 60,
+          transform: 'scale(1.1)',
+          transition: 'none', // Instant on
+          filter: 'brightness(1.5)'
+      };
+  };
+
   return (
     <div ref={containerRef} className="relative w-full h-32 md:h-40 overflow-hidden">
         {width > 0 && STRING_CONFIGS.map(s => {
@@ -116,12 +132,15 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
             const noteName = getNoteName(s.stringId);
 
             // Calculate dynamic width to prevent overlap on small screens
-            // Max 40px (desktop), Min 20px (tiny mobile), or 92% of available spacing
             const colWidth = Math.min(40, Math.max(20, spacing * 0.92));
 
-            // Check if active (Voice Input Feedback)
-            const isActive = activeStringId === s.stringId;
-            const activeStyle = isActive ? {
+            // Check if active (Voice Input Feedback OR Playback Feedback)
+            const isVoiceActive = activeStringId === s.stringId;
+            const playbackDuration = playbackFeedback[s.stringId];
+            const isPlaying = playbackDuration !== undefined;
+
+            // Voice Active Style (Whole Column)
+            const activeStyle = isVoiceActive ? {
                 transform: 'translateX(-50%) scale(1.1) translateY(-5px)',
                 zIndex: 50,
                 boxShadow: `0 0 15px ${color}`,
@@ -132,6 +151,14 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                 transform: 'translateX(-50%)',
                 borderColor: color
             };
+
+            // Determine which button to highlight based on duration
+            // 1/8 = 1.5, 1/4 = 3, 1/2 = 6, 1 = 12 ticks
+            // We use approximate ranges to catch slight timing variations
+            const highlight1 = isPlaying && playbackDuration >= 9; 
+            const highlight1_2 = isPlaying && playbackDuration >= 4.5 && playbackDuration < 9;
+            const highlight1_4 = isPlaying && playbackDuration >= 2.2 && playbackDuration < 4.5;
+            const highlight1_8 = isPlaying && playbackDuration < 2.2;
 
             return (
                 <div
@@ -146,6 +173,7 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                     {/* BUTTON 1/8 (Top) */}
                     <button
                         className="flex-1 w-full relative group/btn hover:bg-white/20 active:bg-white/40 transition-colors border-b border-[#5d4037]/10"
+                        style={getHighlightStyle(highlight1_8)}
                         onMouseDown={(e) => handleClick(e, s.stringId, s.hand, 1.5)}
                         onContextMenu={(e) => handleContextMenu(e, s.stringId, s.hand, 1.5)}
                         onTouchStart={handleTouchStart}
@@ -154,7 +182,7 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                         data-tooltip={`Ajouter ${noteName} (1/8 temps)`}
                     >
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${color}33, ${color}10)` }}></div>
-                        <span className="absolute top-0.5 left-0 right-0 text-[8px] text-[#5d4037] text-center opacity-50 font-bold z-10">1/8</span>
+                        <span className={`absolute top-0.5 left-0 right-0 text-[8px] text-center font-bold z-10 ${highlight1_8 ? 'text-[#5d4037] opacity-100' : 'text-[#5d4037] opacity-50'}`}>1/8</span>
                         {/* String ID Overlay on top most button */}
                         <span className="absolute top-3 left-0 right-0 text-[10px] md:text-xs font-bold text-black z-20 pointer-events-none drop-shadow-sm text-center">
                             {s.stringId}
@@ -164,6 +192,7 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                     {/* BUTTON 1/4 */}
                     <button
                         className="flex-1 w-full relative group/btn hover:bg-white/20 active:bg-white/40 transition-colors border-b border-[#5d4037]/10"
+                        style={getHighlightStyle(highlight1_4)}
                         onMouseDown={(e) => handleClick(e, s.stringId, s.hand, 3)}
                         onContextMenu={(e) => handleContextMenu(e, s.stringId, s.hand, 3)}
                         onTouchStart={handleTouchStart}
@@ -172,12 +201,13 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                         data-tooltip={`Ajouter ${noteName} (1/4 temps)`}
                     >
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${color}55, ${color}33)` }}></div>
-                        <span className="absolute top-1 left-0 right-0 text-[8px] text-[#5d4037] text-center opacity-50 font-bold z-10">1/4</span>
+                        <span className={`absolute top-1 left-0 right-0 text-[8px] text-center font-bold z-10 ${highlight1_4 ? 'text-[#5d4037] opacity-100' : 'text-[#5d4037] opacity-50'}`}>1/4</span>
                     </button>
 
                     {/* BUTTON 1/2 */}
                     <button
                         className="flex-1 w-full relative group/btn hover:bg-white/20 active:bg-white/40 transition-colors border-b border-[#5d4037]/10"
+                        style={getHighlightStyle(highlight1_2)}
                         onMouseDown={(e) => handleClick(e, s.stringId, s.hand, 6)}
                         onContextMenu={(e) => handleContextMenu(e, s.stringId, s.hand, 6)}
                         onTouchStart={handleTouchStart}
@@ -186,12 +216,13 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                         data-tooltip={`Ajouter ${noteName} (1/2 temps)`}
                     >
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${color}99, ${color}55)` }}></div>
-                        <span className="absolute top-1 left-0 right-0 text-[8px] text-[#5d4037] text-center opacity-50 font-bold z-10">1/2</span>
+                        <span className={`absolute top-1 left-0 right-0 text-[8px] text-center font-bold z-10 ${highlight1_2 ? 'text-[#5d4037] opacity-100' : 'text-[#5d4037] opacity-50'}`}>1/2</span>
                     </button>
 
                     {/* BUTTON 1 (Bottom) */}
                     <button
                         className="flex-1 w-full relative group/btn hover:bg-white/20 active:bg-white/40 transition-colors"
+                        style={getHighlightStyle(highlight1)}
                         onMouseDown={(e) => handleClick(e, s.stringId, s.hand, 12)}
                         onContextMenu={(e) => handleContextMenu(e, s.stringId, s.hand, 12)}
                         onTouchStart={handleTouchStart}
@@ -200,7 +231,7 @@ const StringPad: React.FC<StringPadProps> = ({ onInsert, tuning, fingeringMode, 
                         data-tooltip={`Ajouter ${noteName} (1 temps)`}
                     >
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${color}CC, ${color}99)` }}></div>
-                        <span className="absolute bottom-1 left-0 right-0 text-[8px] text-[#5d4037] text-center opacity-50 font-bold z-10">1</span>
+                        <span className={`absolute bottom-1 left-0 right-0 text-[8px] text-center font-bold z-10 ${highlight1 ? 'text-[#5d4037] opacity-100' : 'text-[#5d4037] opacity-50'}`}>1</span>
                         {/* Note Name Overlay on bottom most button */}
                         <span className="absolute bottom-3 left-0 right-0 text-[10px] md:text-sm font-normal text-black z-20 pointer-events-none drop-shadow-sm text-center">
                             {noteName}

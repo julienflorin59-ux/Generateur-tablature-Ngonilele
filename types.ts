@@ -38,6 +38,9 @@ export const TICKS_EIGHTH = 6;
 export const TICKS_TRIPLET = 4;
 export const TICKS_SIXTEENTH = 3;
 
+// Durée du décompte visuel (2 temps de noire = 2 * 12 = 24 ticks)
+export const TICKS_COUNT_IN = 24;
+
 export enum PlaybackState {
   STOPPED,
   PLAYING,

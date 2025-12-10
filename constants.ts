@@ -3,9 +3,9 @@ import { NoteConfig, SongPreset, ScalePreset, Tuning } from './types';
 // =================================================================================
 // 🔗 CONFIGURATION DES RESSOURCES
 // =================================================================================
-// Configuration pour l'éditeur en ligne : on va chercher les sons sur votre nouveau dépôt GitHub.
-// Cela permet d'avoir du son ici même sans héberger les fichiers localement.
-export const ASSETS_BASE_URL = "https://raw.githubusercontent.com/julienflorin59-ux/G-n-rateur-tablature-Ngonil-l-/main/"; 
+// Configuration mise à jour vers le nouveau dépôt GitHub de l'utilisateur.
+// Les fichiers sont chargés via le CDN Raw de GitHub.
+export const ASSETS_BASE_URL = "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilélé/main/"; 
 
 // Standard Note Colors (User requirement: Fixed color per note)
 export const NOTE_COLORS: Record<string, string> = {
@@ -113,15 +113,19 @@ export const SCALES_PRESETS: ScalePreset[] = [
   }
 ];
 
+// NOTE: Tous les presets commencent désormais par 2 temps de silence (+ S)
+// Pour créer le décompte visuel.
+const HEADER_SILENCE = "+   S\n+   S\n";
+
 export const PRESETS: SongPreset[] = [
   {
     name: "--- Nouveau / Vide ---",
-    code: "",
+    code: HEADER_SILENCE,
     category: 'common'
   },
   {
     name: "Exercice Débutant 1 : Montée/Descente",
-    code: `1   1D
+    code: HEADER_SILENCE + `1   1D
 +   S
 +   1G
 +   S
@@ -174,7 +178,7 @@ export const PRESETS: SongPreset[] = [
   },
   {
     name: "Manitoumani -M- & Lamomali",
-    code: `1   4D
+    code: HEADER_SILENCE + `1   4D
 +   4G
 +   5D
 +   5G
@@ -251,7 +255,7 @@ export const PRESETS: SongPreset[] = [
   },
   {
     name: "Démonstration Rythmes",
-    code: `1   6G
+    code: HEADER_SILENCE + `1   6G
 +   TXT  NOIRES (+)
 +   6D
 +   5G

@@ -1,12 +1,14 @@
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Play, Square, FileText, Music, Info, Download, Code, Video, Grid3X3, Settings, Share2, Star, Edit3, Headphones, Plus, Menu, X, Box, ChevronDown, Minus, ChevronsLeft, Activity, Save, FolderOpen, Palette, FileDown, Pause, SkipBack, Trash2, Clock, Ban, RotateCcw, Edit, Timer, Gauge, Undo2, ArrowDownToLine, MousePointerClick, MessageSquarePlus, Wand2, Hand, Zap, MoveRight, BookOpen, Mic, MicOff, Film, FileType, CheckCircle2, MousePointer, ThumbsUp, Copy, Clipboard, Repeat, LayoutGrid, Lock, User, UserCheck, Users, Shield, ShieldAlert, KeyRound, Loader2, PenLine, Mail, Bug, HelpCircle, Send, MousePointer2, Smartphone, Piano, ExternalLink } from 'lucide-react';
+import { Play, Square, FileText, Music, Info, Download, Code, Video, Grid3X3, Settings, Share2, Star, Edit3, Headphones, Plus, Menu, X, Box, ChevronDown, Minus, ChevronsLeft, Activity, Save, FolderOpen, Palette, FileDown, Pause, SkipBack, Trash2, Clock, Ban, RotateCcw, Edit, Timer, Gauge, Undo2, ArrowDownToLine, MousePointerClick, MessageSquarePlus, Wand2, Hand, Zap, MoveRight, BookOpen, Mic, MicOff, Film, FileType, CheckCircle2, MousePointer, ThumbsUp, Copy, Clipboard, Repeat, LayoutGrid, Lock, User, UserCheck, Users, Shield, ShieldAlert, KeyRound, Loader2, PenLine, Mail, Bug, HelpCircle, Send, MousePointer2, Smartphone, Piano, ExternalLink, ChevronUp, LifeBuoy } from 'lucide-react';
 import { PRESETS, NOTE_COLORS, SCALES_PRESETS, ASSETS_BASE_URL, STRING_CONFIGS, BASE_TUNING, ALL_CHROMATIC_NOTES, AVAILABLE_SAMPLES } from './constants';
 import { parseTablature } from './utils/parser';
 import { audioEngine } from './utils/audio';
 import { generatePDF } from './utils/pdf';
 import Visualizer, { VisualizerHandle } from './components/Visualizer';
 import StringPad from './components/StringPad';
-import { Tuning, ParsedNote, TICKS_QUARTER, PlaybackState, SongPreset } from './types';
+import { Tuning, ParsedNote, TICKS_QUARTER, PlaybackState, SongPreset, TICKS_COUNT_IN } from './types';
 
 // --- CONFIGURATION DES LICENCES ---
 // Liste des codes d'accès valides (Licences)
@@ -30,12 +32,17 @@ interface StringSelectorProps {
   stringId: string;
   currentNote: string;
   onNoteChange: (stringId: string, newNote: string) => void;
+  hand: 'G' | 'D'; // Hand prop for symmetry
 }
 
-const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, onNoteChange }) => {
+const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, onNoteChange, hand }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const color = getNoteColor(currentNote);
   const baseNote = BASE_TUNING[stringId];
   const baseIndex = ALL_CHROMATIC_NOTES.indexOf(baseNote);
+  
   let availableOptions: string[] = [];
   if (baseIndex !== -1) {
       const minIndex = Math.max(0, baseIndex - 3);
@@ -46,29 +53,77 @@ const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, 
       availableOptions = [currentNote];
   }
 
+  const isLeft = hand === 'G';
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   return (
-      <div className="flex items-center gap-2" data-tooltip={`Accorder la corde ${stringId}`}>
-          <span className="w-6 text-xs font-black text-[#5d4037]/70 text-right shrink-0">
+      <div className={`flex items-center gap-2 relative ${!isLeft ? 'flex-row-reverse' : ''}`} data-tooltip={`Accorder la corde ${stringId}`} ref={dropdownRef}>
+          <span className={`w-6 text-xs font-black text-[#5d4037] shrink-0 ${isLeft ? 'text-right' : 'text-left'}`}>
               {stringId}
           </span>
-          <div 
-              className="flex-1 relative h-8 flex items-center justify-center rounded-r transition-all hover:brightness-95 border-l-4 shadow-sm"
-              style={{ 
-                  borderColor: color,
-                  background: `linear-gradient(to right, ${color}33, transparent)`
-              }}
-          >
-              <select 
-                  className="text-center font-bold bg-transparent text-[#5d4037] outline-none cursor-pointer w-full h-full appearance-none z-10 text-xs"
-                  value={currentNote}
-                  onChange={(e) => onNoteChange(stringId, e.target.value)}
-              >
-                  {availableOptions.map(n => (
-                      <option key={n} value={n} className="bg-[#e5c4a1] text-[#5d4037] font-bold">
-                          {n}
-                      </option>
-                  ))}
-              </select>
+          
+          <div className="relative flex-1">
+            {/* TRIGGER BUTTON */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full relative h-8 flex items-center justify-center transition-all duration-200 shadow-sm rounded-xl outline-none border
+                  ${isOpen ? 'ring-2 ring-[#A67C52] scale-[1.02]' : 'hover:brightness-110 hover:shadow-md hover:scale-[1.02]'}
+                `}
+                style={{ 
+                    borderColor: color,
+                    // Gradient direction mirrors based on hand. Opacity set to 80% (CC)
+                    background: `linear-gradient(to ${isLeft ? 'right' : 'left'}, ${color}CC, transparent)`
+                }}
+            >
+                <span className="font-bold text-[#5d4037] text-xs z-10">{currentNote}</span>
+                <div className={`absolute inset-y-0 ${isLeft ? 'right-2' : 'left-2'} flex items-center pointer-events-none opacity-50`}>
+                    <ChevronDown size={12} className={`text-[#5d4037] transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
+                </div>
+            </button>
+
+            {/* CUSTOM DROPDOWN MENU */}
+            {isOpen && (
+                <div className="absolute top-full left-0 w-full z-[100] mt-1 max-h-48 overflow-y-auto custom-scrollbar rounded-xl border-2 border-[#cbb094] bg-[#fdf6e3] shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                    <div className="py-1 flex flex-col gap-0.5 p-1">
+                        {availableOptions.map(note => {
+                            const noteColor = getNoteColor(note);
+                            const isSelected = note === currentNote;
+                            return (
+                                <button
+                                    key={note}
+                                    onClick={() => { onNoteChange(stringId, note); setIsOpen(false); }}
+                                    className={`w-full text-center py-1.5 rounded-lg text-xs font-bold text-[#5d4037] transition-all relative overflow-hidden flex items-center justify-center gap-2
+                                        ${isSelected ? 'brightness-110 font-black' : 'hover:brightness-110 hover:scale-[1.02]'}
+                                    `}
+                                    style={{
+                                        // Visualiser la couleur par une bande horizontale (dégradé comme la barre principale)
+                                        background: `linear-gradient(to right, ${noteColor}99, ${noteColor}33)`,
+                                        // Bordure de la couleur de la note si sélectionné, sinon transparent (pour éviter le saut de layout)
+                                        border: isSelected ? `2px solid ${noteColor}` : '2px solid transparent'
+                                    }}
+                                >
+                                    {note}
+                                    {isSelected && <CheckCircle2 size={10} className="opacity-60"/>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
           </div>
       </div>
   );
@@ -84,6 +139,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
     const [code, setCode] = useState('');
     const [error, setError] = useState('');
 
+    useEffect(() => {
+        const saved = localStorage.getItem('ngonilele_license_code');
+        if (saved && VALID_ACCESS_CODES.includes(saved)) {
+            onLogin();
+        }
+    }, []);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -95,6 +157,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
         }
 
         if (VALID_ACCESS_CODES.includes(trimmedCode)) {
+            localStorage.setItem('ngonilele_license_code', trimmedCode);
             onLogin();
         } else {
             setError("Clé de licence invalide.");
@@ -165,7 +228,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
                 </button>
             </div>
             <div className="mt-8 text-xs font-bold text-[#8d6e63]/60">
-                v1.0.1 • Ngonilélé Generator
+                v1.0.3 • Ngonilélé Generator
             </div>
         </div>
     );
@@ -180,27 +243,13 @@ interface SavedBlock { id: string; name: string; notes: ParsedNote[]; }
 type UserRole = 'none' | 'admin' | 'guest';
 
 // Mots phonétiquement proches des cordes
-const PHONETIC_MAPPING: Record<string, string> = {
-    "J'AI": "G", "GÉ": "G", "JAI": "G", "JE": "G", "GAUCHE": "G", "G": "G",
-    "DÉ": "D", "DES": "D", "THE": "D", "DE": "D", "DROITE": "D", "DÈS": "D", "D": "D"
-};
-
 const NUMBER_MAPPING: Record<string, string> = {
-    "UN": "1", "UNE": "1",
-    "DEUX": "2", "DE": "2",
+    "UN": "1", "UNE": "1", "L'UN": "1", "L'UNE": "1", "A": "1",
+    "DEUX": "2",
     "TROIS": "3",
     "QUATRE": "4",
     "CINQ": "5",
-    "SIX": "6"
-};
-
-const DURATION_MAPPING: Record<string, number> = {
-    "DEMI": 6, // 1/2 beat
-    "QUART": 3, // 1/4 beat
-    "1": 12, "UN": 12, "UNE": 12,
-    "2": 24, "DEUX": 24,
-    "3": 36, "TROIS": 36,
-    "4": 48, "QUATRE": 48
+    "SIX": "6", "CI": "6", "SIE": "6"
 };
 
 export default function App() {
@@ -223,9 +272,16 @@ export default function App() {
   const [playingSource, setPlayingSource] = useState<'editor' | 'scale'>('editor'); 
   const [isRecording, setIsRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false); 
-  const [currentTick, setCurrentTick] = useState(0);
-  const currentTickRef = useRef(0); 
-  
+  // Initial current tick logic modified: start at 0 but we will handle the "Start" offset logic elsewhere
+  // Or rather, if we load a new preset, it starts at 24 ticks structurally.
+  const [currentTick, setCurrentTick] = useState(TICKS_COUNT_IN);
+  const currentTickRef = useRef(TICKS_COUNT_IN);
+  const cursorTickRef = useRef(TICKS_COUNT_IN); // For rapid StringPad input handling
+
+  // Feedback State for StringPad
+  const [playbackFeedback, setPlaybackFeedback] = useState<Record<string, number>>({});
+  const playbackIndexRef = useRef(0);
+
   // Export Settings
   const [exportPlaybackSpeed, setExportPlaybackSpeed] = useState(1.0);
 
@@ -235,6 +291,10 @@ export default function App() {
   const recognitionRef = useRef<any>(null);
   const isVoiceActiveRef = useRef(false);
   const [activeVoiceStringId, setActiveVoiceStringId] = useState<string | null>(null);
+  
+  // Voice Buffer - Removed complicated timing logic, keeping basic buffer for pairing numbers + letters
+  const voiceBufferRef = useRef<{ stringId: string, timestamp: number } | null>(null);
+  const voicePartialRef = useRef<{ value: string, type: 'number'|'hand' } | null>(null); // To handle "1... G" split
 
   // MIDI Input State
   const [isMidiEnabled, setIsMidiEnabled] = useState(false);
@@ -282,7 +342,13 @@ export default function App() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const loadProjectInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { currentTickRef.current = currentTick; }, [currentTick]);
+  useEffect(() => { 
+      currentTickRef.current = currentTick; 
+      // Sync cursorTickRef only if we are not in rapid-fire mode (heuristically)
+      // or simply sync it whenever currentTick changes externally (like seek)
+      cursorTickRef.current = currentTick;
+  }, [currentTick]);
+  
   useEffect(() => { audioEngine.setMetronome(isMetronomeOn); }, [isMetronomeOn]);
   useEffect(() => { audioEngine.setRhythmMode(rhythmMode); }, [rhythmMode]);
   useEffect(() => { currentTuningRef.current = currentTuning; }, [currentTuning]);
@@ -371,6 +437,68 @@ export default function App() {
 
   const activeData = playingSource === 'scale' ? scaleData : parsedData;
 
+  // Reset feedback state on stop
+  useEffect(() => {
+      if (playbackState === PlaybackState.STOPPED) {
+          setPlaybackFeedback({});
+          playbackIndexRef.current = 0;
+      }
+      if (playbackState === PlaybackState.PLAYING) {
+        // SYNC FIX: Ensure index is correct at start of playback to avoid "first note always lights up" bug
+        const startTick = currentTickRef.current;
+        const newIndex = parsedData.findIndex(n => n.tick >= startTick);
+        playbackIndexRef.current = newIndex !== -1 ? newIndex : parsedData.length;
+    }
+  }, [playbackState, parsedData]);
+
+  // Monitor currentTick for note triggers (Visual Feedback Logic)
+  useEffect(() => {
+      if (playbackState !== PlaybackState.PLAYING) return;
+
+      let localFeedbackUpdate = { ...playbackFeedback };
+      let didUpdate = false;
+      
+      // Check pending notes
+      while (playbackIndexRef.current < parsedData.length) {
+          const note = parsedData[playbackIndexRef.current];
+          
+          // STRICT TIMING: Remove the loose lookahead (-0.2).
+          // Only trigger if we have reached or passed the note.
+          // Note: Since we removed the negative offset in AudioEngine, strict equality logic works better.
+          if (currentTick >= note.tick) { 
+              // Determine duration until next note (for lighting up correct button)
+              let effectiveDuration = 12; // Default to quarter note
+              
+              // Find the next note chronologically to determine gap
+              for(let i = playbackIndexRef.current + 1; i < parsedData.length; i++) {
+                  if (parsedData[i].tick > note.tick) {
+                      effectiveDuration = parsedData[i].tick - note.tick;
+                      break;
+                  }
+              }
+
+              localFeedbackUpdate[note.stringId] = effectiveDuration;
+              didUpdate = true;
+              playbackIndexRef.current++;
+
+              // Auto-clear feedback after short flash
+              setTimeout(() => {
+                  setPlaybackFeedback(prev => {
+                      const next = { ...prev };
+                      delete next[note.stringId];
+                      return next;
+                  });
+              }, 250); 
+          } else {
+              break; // Next note is in the future
+          }
+      }
+
+      if (didUpdate) {
+          setPlaybackFeedback(localFeedbackUpdate);
+      }
+  }, [currentTick, parsedData, playbackState]);
+
   const filteredPresets = useMemo(() => {
       if (bankTab === 'user') return userPresets;
       return PRESETS.filter(p => { if (p.category === 'common') return true; return p.category === bankTab; });
@@ -389,6 +517,11 @@ export default function App() {
               stopRecording();
           }
           setPlaybackState(PlaybackState.STOPPED); 
+          // Stop logic usually resets to 0, but here for user convenience we go to Start of Music (24)
+          // except if we are exporting, in which case we stop silently.
+          if (!isExportingRef.current) {
+              setCurrentTick(TICKS_COUNT_IN);
+          }
       }); 
   }, []); // Empty deps, we use refs
 
@@ -401,6 +534,7 @@ export default function App() {
           audioEngine.setBpm(bpm);
           audioEngine.setPlaybackSpeed(playbackSpeed);
           audioEngine.setOnTick((tick) => setCurrentTick(tick));
+          // IMPORTANT: Reset index logic handled in useEffect[playbackState]
           audioEngine.play(currentTick).catch(err => { setPlaybackState(PlaybackState.STOPPED); setIsRecording(false); });
       } else if (isExporting) {
           // In export mode, we still need to subscribe to ticks for visualizer
@@ -413,14 +547,37 @@ export default function App() {
     }
   }, [playbackState, activeData, bpm, playbackSpeed, isExporting]); 
   
-  const handleNoteAdd = (stringId: string, finger: string = 'P', tick?: number, advanceTicks: number = 0) => {
-      let insertionTick = tick !== undefined ? tick : currentTick;
+  const handleNoteAdd = (stringId: string, finger?: string, tick?: number, advanceTicks: number = 0) => {
+      // Use explicit tick (voice/background click) OR fallback to current cursor (StringPad/MIDI)
+      // We use cursorTickRef here to support rapid clicking on StringPad without waiting for React state updates.
+      let insertionTick = tick !== undefined ? tick : cursorTickRef.current;
+      
+      // RESTRICTION: Impossible d'ajouter une note dans la zone de décompte (0-24 ticks)
+      if (insertionTick < TICKS_COUNT_IN) {
+          return; // Silently block or maybe vibrate/alert?
+      }
+
       const newNote: ParsedNote = { id: 'temp-new', tick: insertionTick, duration: 0, stringId: stringId, doigt: finger, lineIndex: -1 };
       const allNotes = [...parsedData, newNote];
       regenerateCodeFromAbsolutePositions(allNotes);
-      if (playbackState === PlaybackState.STOPPED && (tick === undefined || tick === currentTick)) {
-           if (advanceTicks > 0) { setCurrentTick(prev => prev + advanceTicks); }
+      
+      // LOGIC: Advance Cursor only if requested (StringPad / Sequencer)
+      // Voice input passes advanceTicks=0, so it stays on the line (as requested).
+      if (playbackState === PlaybackState.STOPPED) {
+           if (advanceTicks > 0) { 
+               const newTick = insertionTick + advanceTicks;
+               cursorTickRef.current = newTick; // Update ref immediately for rapid clicks
+               setCurrentTick(newTick); // Trigger UI update
+           } else {
+               // For manual placement (voice), ensure our internal ref stays synced to where we just placed it
+               cursorTickRef.current = insertionTick;
+               // If tick was explicit (e.g. background click changed it), ensure state reflects it
+               if (tick !== undefined && tick !== currentTick) {
+                   setCurrentTick(tick);
+               }
+           }
       }
+      
       // PLAY NOTE SOUND FOR FEEDBACK
       audioEngine.previewString(stringId);
   };
@@ -527,14 +684,46 @@ export default function App() {
     setCurrentTuning(newTuning); audioEngine.setTuning(newTuning); setSelectedScaleName("Personnalisée"); 
   };
 
-  const startPlayback = () => { setPlayingSource('editor'); setPlaybackState(PlaybackState.PLAYING); };
+  const startPlayback = () => { 
+      // Lecture : Démarre TOUJOURS à 0 pour entendre le décompte (sauf si Pause)
+      if (playbackState === PlaybackState.PAUSED) {
+          setPlayingSource('editor');
+          setPlaybackState(PlaybackState.PLAYING); 
+      } else {
+          // Playback normal -> start at 0
+          setCurrentTick(0);
+          setPlayingSource('editor');
+          setPlaybackState(PlaybackState.PLAYING);
+      }
+  };
+
   const pausePlayback = () => { setPlaybackState(PlaybackState.PAUSED); };
-  const stopPlayback = () => { setPlaybackState(PlaybackState.STOPPED); setCurrentTick(0); };
-  const rewindPlayback = () => { if (playbackState === PlaybackState.PLAYING) { audioEngine.play(0); } else { setCurrentTick(0); } };
+  
+  const stopPlayback = () => { 
+      setPlaybackState(PlaybackState.STOPPED); 
+      // STOP : On remet le curseur au début de la musique (après le décompte) pour éditer
+      setCurrentTick(TICKS_COUNT_IN); 
+  };
+  
+  const rewindPlayback = () => { 
+      if (playbackState === PlaybackState.PLAYING) { 
+          audioEngine.play(0); 
+      } else { 
+          setCurrentTick(0); 
+      }
+      // Reset feedback index
+      playbackIndexRef.current = 0;
+      setPlaybackFeedback({});
+  };
 
   const handleSeek = (tick: number) => {
       setCurrentTick(tick); setNoteTooltip(null);
       if (playbackState === PlaybackState.PLAYING) { audioEngine.play(tick); }
+      
+      // Update feedback index to match seek position
+      const newIndex = parsedData.findIndex(n => n.tick >= tick);
+      playbackIndexRef.current = newIndex !== -1 ? newIndex : parsedData.length;
+      setPlaybackFeedback({});
   };
 
   const updateCode = (newCode: string) => {
@@ -561,7 +750,10 @@ export default function App() {
           const scalePreset = SCALES_PRESETS.find(s => s.name === preset.scaleName);
           if (scalePreset) { setSelectedScaleName(scalePreset.name); setCurrentTuning(scalePreset.tuning); audioEngine.setTuning(scalePreset.tuning); }
       }
-      setPlaybackState(PlaybackState.STOPPED); setCurrentTick(0); setPlayingSource('editor');
+      setPlaybackState(PlaybackState.STOPPED); 
+      // Initialize tick after count-in for editing
+      setCurrentTick(TICKS_COUNT_IN); 
+      setPlayingSource('editor');
       if (mainTab !== 'editor') setMainTab('editor');
       setIsSidebarOpen(false);
     }
@@ -623,7 +815,15 @@ export default function App() {
   const handleConfirmTextInsert = () => {
       const text = textInputModal.text; const tick = textInputModal.targetTick ?? currentTick;
       if (!text.trim()) { setTextInputModal({ visible: false, text: '' }); return; }
-      const newEvent: ParsedNote = { id: 'temp-txt', tick: tick, duration: 0, stringId: 'TEXTE', message: text.toUpperCase(), lineIndex: -1 };
+      
+      // Restriction: Pas de texte dans le décompte
+      if (tick < TICKS_COUNT_IN) {
+          alert("Impossible d'insérer du texte dans la zone de décompte.");
+          return;
+      }
+
+      // UPDATED: No more .toUpperCase() to respect user case input
+      const newEvent: ParsedNote = { id: 'temp-txt', tick: tick, duration: 0, stringId: 'TEXTE', message: text, lineIndex: -1 };
       const allNotes = [...parsedData, newEvent].sort((a, b) => a.tick - b.tick);
       regenerateCodeFromAbsolutePositions(allNotes);
       setTextInputModal({ visible: false, text: '' }); setInsertMenu({ ...insertMenu, visible: false }); 
@@ -642,6 +842,7 @@ export default function App() {
           if (note.stringId === 'TEXTE') {
               const delta = Math.max(0, note.tick - lastTick);
               const symbol = delta === 0 ? '+' : delta.toString();
+              // UPDATED: No more .toUpperCase() here, rely on message content
               lines.push(`${symbol}   TXT   ${note.message}`);
               lastTick = note.tick;
               return;
@@ -649,7 +850,11 @@ export default function App() {
           if (note.stringId === 'PAGE_BREAK') { lines.push(`+   PAGE`); return; }
           const delta = Math.max(0, note.tick - lastTick);
           let symbol = ''; if (delta === 0) { symbol = '='; } else { symbol = delta.toString(); }
-          lines.push(`${symbol}   ${note.stringId}   ${note.doigt || 'P'}`);
+          
+          // MODIF: Si doigt est undefined (mode manuel), on ne l'affiche pas dans le code
+          const fingerStr = note.doigt ? `   ${note.doigt}` : '';
+          lines.push(`${symbol}   ${note.stringId}${fingerStr}`);
+          
           lastTick = note.tick;
       });
       updateCode(lines.join('\n'));
@@ -657,17 +862,28 @@ export default function App() {
 
   const handleNoteClick = (note: ParsedNote, x: number, y: number) => { 
       setSelectedNoteId(note.id); setSelectedNoteIds([]); 
+      // Close all other menus to ensure single window focus
       setSelectionMenu({...selectionMenu, visible: false});
+      setEditModal({ ...editModal, visible: false });
+      setInsertMenu({ ...insertMenu, visible: false });
   };
   
   const handleNoteContextMenu = (note: ParsedNote, x: number, y: number) => {
       setNoteTooltip(null);
       setSelectedNoteId(note.id); setSelectedNoteIds([]);
+      // Close other menus
+      setSelectionMenu({ ...selectionMenu, visible: false });
+      setInsertMenu({ ...insertMenu, visible: false });
+      
       setEditModal({ visible: true, note, x: Math.min(x + 10, window.innerWidth - 180), y: Math.min(y + 10, window.innerHeight - 200) });
   };
 
   const handleMultiSelectionFinished = (ids: string[], x: number, y: number) => {
       setSelectedNoteIds(ids); setSelectedNoteId(null);
+      // Close other menus
+      setEditModal({ ...editModal, visible: false });
+      setInsertMenu({ ...insertMenu, visible: false });
+      
       setSelectionMenu({ 
           visible: true, 
           selectedIds: ids, 
@@ -748,10 +964,11 @@ export default function App() {
   };
 
   const handlePasteBlock = (block: SavedBlock) => {
+      const insertionTick = Math.max(TICKS_COUNT_IN, currentTick);
       const newNotes = block.notes.map((n, i) => ({
           ...n,
           id: `paste-block-${Date.now()}-${i}`,
-          tick: currentTick + n.tick,
+          tick: insertionTick + n.tick,
           lineIndex: -1
       }));
       const allNotes = [...parsedData, ...newNotes];
@@ -794,30 +1011,74 @@ export default function App() {
 
   const handleBackgroundClick = (tick: number, stringId: string | undefined, x: number, y: number) => {
       setNoteTooltip(null); 
-      if (selectionMenu.visible) {
-          setSelectedNoteIds([]);
-          setSelectionMenu({...selectionMenu, visible: false});
-      }
-      setInsertMenu({ visible: true, tick, stringId, x: Math.min(x + 10, window.innerWidth - 180), y: Math.min(y + 10, window.innerHeight - 150) });
+      // Close conflicting menus
+      setSelectionMenu({...selectionMenu, visible: false});
+      setEditModal({ ...editModal, visible: false });
+      setSelectedNoteIds([]);
       setSelectedNoteId(null);
+      
+      // RESTRICTION: Si on clique dans la zone de décompte, on ne fait QUE déplacer le curseur pour lecture
+      // Pas de menu d'insertion
+      if (tick < TICKS_COUNT_IN) {
+          // Previously: handleSeek(0). 
+          // Now: Do nothing because Right Click should not move cursor, and menu is disabled here.
+          // Left Click (Seek) is handled directly by Visualizer calling handleSeekAndClear
+          return;
+      }
+
+      setInsertMenu({ visible: true, tick, stringId, x: Math.min(x + 10, window.innerWidth - 180), y: Math.min(y + 10, window.innerHeight - 150) });
+      
+      // FIX: Ne plus déplacer le curseur jaune lors d'un clic droit (pour ouvrir le menu)
+      // setCurrentTick(tick); 
   };
   
   const handleSeekAndClear = (tick: number) => {
       setSelectedNoteId(null);
       setSelectedNoteIds([]);
+      // Close all menus
       setSelectionMenu({ ...selectionMenu, visible: false });
       setInsertMenu({ ...insertMenu, visible: false });
+      setEditModal({ ...editModal, visible: false });
+      
       handleSeek(tick);
   };
 
   const handleMenuAction = (type: 'NOTE' | 'SILENCE' | 'TEXT' | 'PASTE') => {
       const { tick, stringId } = insertMenu;
-      if (type === 'NOTE' && stringId) { handleNoteAdd(stringId, 'P', tick); }
+      if (type === 'NOTE' && stringId) {
+          // MODIF: Gestion du mode manuel pour n'afficher aucun doigté
+          let finger: string | undefined;
+          if (fingeringMode === 'auto') {
+               // 1, 2, 3 = P (Thumb), 4, 5, 6 = I (Index)
+               if (['4D','5D','6D','4G','5G','6G'].includes(stringId)) finger = 'I';
+               else finger = 'P';
+          }
+          // En mode manuel, finger reste undefined -> Pas de doigté affiché
+          handleNoteAdd(stringId, finger, tick); 
+      }
       else if (type === 'TEXT') { setTextInputModal({ visible: true, text: '', targetTick: tick }); }
       setInsertMenu({ ...insertMenu, visible: false });
   };
 
-  // --- VOICE INPUT LOGIC REFACTORED (RECURSIVE) ---
+  // --- VOICE INPUT LOGIC REFACTORED (DIRECT INSERT MODE) ---
+  
+  const commitVoiceNote = (stringId: string) => {
+      // Clear buffers
+      voiceBufferRef.current = null;
+      voicePartialRef.current = null;
+      
+      // Auto finger rule: Thumb for 1-3, Index for 4-6
+      let finger = 'P';
+      if (['4D','5D','6D','4G','5G','6G'].includes(stringId)) finger = 'I';
+
+      // Insert at CURRENT TICK (determined by user click on grid)
+      // Advance 0 ticks to stay on the line as requested: "Click on a line and dictate"
+      handleNoteAddRef.current(stringId, finger, currentTickRef.current, 0); 
+      
+      setActiveVoiceStringId(stringId); // Visual feedback
+      setTimeout(() => setActiveVoiceStringId(null), 300);
+  };
+
   const startRecursiveVoiceRecognition = () => {
       if (!isVoiceActiveRef.current) return;
       
@@ -825,7 +1086,7 @@ export default function App() {
       if (!SpeechRecognition) return;
 
       const recognition = new SpeechRecognition();
-      recognition.continuous = false; // Important for mobile stability
+      recognition.continuous = true; 
       recognition.lang = 'fr-FR';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
@@ -833,7 +1094,6 @@ export default function App() {
       recognition.onstart = () => setIsListening(true);
       
       recognition.onend = () => {
-          // Recursive restart: create new instance if still active
           if (isVoiceActiveRef.current) {
               setTimeout(startRecursiveVoiceRecognition, 50);
           } else {
@@ -842,84 +1102,99 @@ export default function App() {
       };
       
       recognition.onerror = (event: any) => {
-          if (event.error === 'no-speech' || event.error === 'aborted') {
-               // Ignore and let onend restart
-               return; 
-          }
-          
+          if (event.error === 'no-speech' || event.error === 'aborted') { return; }
           console.warn("Speech Error:", event.error);
-          
           if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
               isVoiceActiveRef.current = false;
               setIsListening(false);
-              alert("Accès micro refusé.\n\nVérifiez :\n1. Cadenas 🔒 > Permissions > Réinitialiser.\n2. Connexion HTTPS requise.");
+              alert("Accès micro refusé. Vérifiez les permissions.");
           }
       };
 
       recognition.onresult = (event: any) => {
-          const result = event.results[0];
-          if (result.isFinal) {
-              const text = result[0].transcript.toUpperCase().trim();
-              setVoiceLog(`"${text}"`);
-              
-              // === PARSEUR DE COMMANDES VOCALES ===
-              // 1. Normalisation
-              let cleanText = text;
-              
-              // Remplacement des mots chiffres
-              Object.entries(NUMBER_MAPPING).forEach(([word, digit]) => {
-                  cleanText = cleanText.replace(new RegExp(word, 'g'), digit);
-              });
-              
-              // Remplacement des mots phonétiques main
-              Object.entries(PHONETIC_MAPPING).forEach(([sound, hand]) => {
-                  cleanText = cleanText.replace(new RegExp(sound, 'g'), hand);
-              });
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+             const result = event.results[i];
+             if (result.isFinal) {
+                  let text = result[0].transcript.toUpperCase().trim();
+                  
+                  // 0. CLEANING / NORMALIZATION (PRE-PROCESSING)
+                  
+                  // Hand "G" - Aggressive
+                  text = text.replace(/\bJ\s*['’]?\s*AI\b/gi, " G ");
+                  text = text.replace(/\bJ\s*['’]?\s*Y\b/gi, " G ");
+                  text = text.replace(/\bJ\s*E\b/gi, " G "); 
+                  text = text.replace(/\bJAI\b/gi, " G ");
+                  text = text.replace(/\bGAI\b/gi, " G ");
+                  text = text.replace(/\bGE\b/gi, " G ");
+                  text = text.replace(/J\s*['’]?\s*AI/gi, " G ");
+                  text = text.replace(/\bJ[IY]\b/gi, " G "); // Ji, Jy
 
-              // 2. Extraction du StringID (ex: "1G", "G1", "4D", "D4")
-              const stringRegex = /([1-6])([GD])|([GD])([1-6])/;
-              const match = cleanText.match(stringRegex);
+                  // Hand "D" - Aggressive
+                  text = text.replace(/\bD[EÈ]S\b/gi, " D ");
+                  text = text.replace(/\bD\s*['’]?\s*ELLE\b/gi, " D ");
+                  text = text.replace(/\bD\s*['’]?\s*AILE\b/gi, " D ");
+                  text = text.replace(/\bDE\b/gi, " D "); 
+                  text = text.replace(/\bD[ÉE]S\b/gi, " D ");
+                  text = text.replace(/\bDAY\b/gi, " D ");
 
-              if (match) {
-                  let stringId = '';
-                  // Cas "1G" (Group 1 & 2)
-                  if (match[1] && match[2]) stringId = match[1] + match[2];
-                  // Cas "G1" (Group 3 & 4) -> conversion "1G"
-                  else if (match[3] && match[4]) stringId = match[4] + match[3];
+                  // Normalize Numbers
+                  Object.entries(NUMBER_MAPPING).forEach(([word, digit]) => {
+                      text = text.replace(new RegExp(`\\b${word}\\b`, 'g'), digit);
+                  });
 
-                  if (stringId) {
-                       // 3. Extraction de la Durée (dans le reste du texte)
-                       let duration = 12; // Défaut : 1 temps (12 ticks)
-                       const remainingText = cleanText.replace(match[0], '').trim();
-                       
-                       // Recherche de mots clés de durée
-                       let foundDuration = false;
-                       for (const [key, val] of Object.entries(DURATION_MAPPING)) {
-                           if (remainingText.includes(key)) {
-                               duration = val;
-                               foundDuration = true;
-                               break;
+                  // Clean Spaces within Note IDs (1 G -> 1G)
+                  text = text.replace(/([1-6])\s+([GD])/g, "$1$2"); 
+                  text = text.replace(/([GD])\s+([1-6])/g, "$2$1"); 
+                  
+                  // Extra whitespace cleanup
+                  text = text.replace(/\s+/g, " ");
+
+                  setVoiceLog(`"${text}"`);
+
+                  // 1. TOKENIZING
+                  const tokens = text.split(" ");
+
+                  tokens.forEach(t => {
+                      // 2. Full Note Detection: 1G, 6D... (Already combined by regex)
+                      const sMatch = t.match(/^([1-6][GD]|[GD][1-6])$/);
+                      if (sMatch) {
+                          let cleanId = sMatch[0];
+                          if (cleanId.match(/^[GD][1-6]$/)) { cleanId = cleanId[1] + cleanId[0]; } // Normalize G1 -> 1G
+
+                          commitVoiceNote(cleanId);
+                          return;
+                      }
+
+                      // 3. Partial Input Handling (Combine number + letter if separated)
+                      // Case A: Just Number
+                      if (t.match(/^[1-6]$/)) {
+                           if (voicePartialRef.current && voicePartialRef.current.type === 'hand') {
+                               // Combine Partial Hand + New Number -> 1G
+                               const hand = voicePartialRef.current.value;
+                               const combined = t + hand;
+                               commitVoiceNote(combined);
+                           } else {
+                               // Store Number, wait for Hand
+                               voicePartialRef.current = { value: t, type: 'number' };
                            }
-                       }
+                           return;
+                      }
 
-                       // Si pas de durée explicite trouvée, vérification s'il reste un chiffre isolé
-                       if (!foundDuration) {
-                           const durMatch = remainingText.match(/[1-9]/);
-                           if (durMatch) {
-                               const beats = parseInt(durMatch[0], 10);
-                               duration = beats * 12;
+                      // Case B: Just Hand
+                      if (t.match(/^[GD]$/)) {
+                           if (voicePartialRef.current && voicePartialRef.current.type === 'number') {
+                               // Combine Partial Number + New Hand -> 1G
+                               const num = voicePartialRef.current.value;
+                               const combined = num + t;
+                               commitVoiceNote(combined);
+                           } else {
+                               // Store Hand, wait for Number
+                               voicePartialRef.current = { value: t, type: 'hand' };
                            }
-                       }
-
-                       // ACTION
-                       handleNoteAddRef.current(stringId, 'P', undefined, duration);
-                       setVoiceLog(`✔ ${stringId} (${duration/12}t)`);
-                       setActiveVoiceStringId(stringId);
-                       setTimeout(() => setActiveVoiceStringId(null), 400);
-                  }
-              } else {
-                  setVoiceLog(`? "${text}"`);
-              }
+                           return;
+                      }
+                  });
+             }
           }
       };
 
@@ -960,16 +1235,29 @@ export default function App() {
         }
         
         isVoiceActiveRef.current = true;
-        setVoiceLog("Démarrage...");
+        setVoiceLog("");
         startRecursiveVoiceRecognition();
     }
   };
 
   const handleNoteDrag = (note: ParsedNote, newStringId: string, newTick: number) => {
      if (!note) return;
+     // RESTRICTION: Déjà gérée dans Visualizer, mais double sécurité ici
+     if (newTick < TICKS_COUNT_IN) return; 
+
      const allNotes = [...parsedData];
      const index = allNotes.findIndex(n => n.id === note.id);
-     if (index !== -1) { allNotes[index] = { ...allNotes[index], stringId: newStringId, tick: newTick }; }
+     
+     if (index !== -1) { 
+         // SPECIAL HANDLING: If the dragged note is a TEXT command, ensure it remains TEXT
+         if (note.stringId === 'TEXTE') {
+             // For Text, we only update the Tick, ignoring any string change attempt by the Visualizer drag
+             allNotes[index] = { ...allNotes[index], tick: newTick };
+         } else {
+             // Normal Note Logic
+             allNotes[index] = { ...allNotes[index], stringId: newStringId, tick: newTick }; 
+         }
+     }
      regenerateCodeFromAbsolutePositions(allNotes);
   };
 
@@ -992,6 +1280,8 @@ export default function App() {
       try {
         const project = JSON.parse(event.target?.result as string);
         if (project.title) setTabTitle(project.title);
+        // TODO: Si on charge un ancien projet sans décompte, on pourrait l'injecter?
+        // Pour l'instant on charge tel quel. Le code contient le décompte si le preset l'avait.
         if (project.code) updateCode(project.code);
         if (project.tuning) { setCurrentTuning(project.tuning); audioEngine.setTuning(project.tuning); }
         if (project.scaleName) setSelectedScaleName(project.scaleName);
@@ -1296,164 +1586,125 @@ export default function App() {
         </div>
       )}
 
-      {saveModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setSaveModalOpen(false)}>
-             <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4" onClick={e => e.stopPropagation()}>
-                 <h3 className="font-bold text-lg text-[#5d4037]">Enregistrer</h3>
-                 <input type="text" placeholder="Nom..." className="w-full p-2 border border-[#cbb094] rounded bg-[#dcc0a3] text-[#5d4037] font-bold outline-none focus:ring-2 focus:ring-[#A67C52]" value={saveName} onChange={e => setSaveName(e.target.value)} autoFocus />
-                 <div className="flex gap-2 justify-end mt-2"><button onClick={() => setSaveModalOpen(false)} className="px-4 py-2 text-[#8d6e63] font-bold hover:bg-[#cbb094] rounded">Annuler</button><button onClick={handleSaveToLibrary} className="px-6 py-2 bg-[#A67C52] text-white font-bold rounded shadow hover:bg-[#8d6e63]">Enregistrer</button></div>
-             </div>
-        </div>
+      {/* MOBILE OVERLAY */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setIsSidebarOpen(false)}></div>
       )}
 
-      {blockNameModal.visible && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setBlockNameModal({visible: false})}>
-             <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4" onClick={e => e.stopPropagation()}>
-                 <h3 className="font-bold text-lg text-[#5d4037]">Nommer le Bloc</h3>
-                 <input type="text" placeholder="Ex: Refrain 1" className="w-full p-2 border border-[#cbb094] rounded bg-[#dcc0a3] text-[#5d4037] font-bold outline-none focus:ring-2 focus:ring-[#A67C52]" value={blockNameInput} onChange={e => setBlockNameInput(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveBlock()} />
-                 <div className="flex gap-2 justify-end mt-2"><button onClick={() => setBlockNameModal({visible: false})} className="px-4 py-2 text-[#8d6e63] font-bold hover:bg-[#cbb094] rounded">Annuler</button><button onClick={handleSaveBlock} className="px-6 py-2 bg-[#A67C52] text-white font-bold rounded shadow hover:bg-[#8d6e63]">Sauvegarder</button></div>
-             </div>
+      {/* SIDEBAR */}
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50 bg-[#dcc0a3] border-r border-[#cbb094] flex flex-col transition-all duration-300 ease-in-out shadow-xl md:shadow-none
+        ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
+        ${isDesktopSidebarOpen ? 'md:w-72' : 'md:w-0 md:opacity-0 md:overflow-hidden'}
+      `}>
+        {/* HEADER SIDEBAR */}
+        <div className="p-4 border-b border-[#cbb094] flex flex-col gap-4 bg-[#e5c4a1]/50">
+           <div className="flex items-center gap-3">
+              <div className="w-[72px] h-[72px] flex items-center justify-center shrink-0">
+                  <img 
+                    src="https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/logo_mandala.png" 
+                    alt="Logo Ngonilélé" 
+                    className="w-full h-full object-contain animate-in fade-in zoom-in"
+                  />
+              </div>
+              <div>
+                  <h1 className="font-serif font-bold text-lg leading-none text-[#5d4037]">Ngonilélé</h1>
+                  <span className="text-[10px] uppercase font-bold text-[#8d6e63] tracking-widest">Tablatures</span>
+              </div>
+           </div>
+           
+           {/* TABS */}
+           <div className="flex bg-[#e5c4a1] p-1 rounded-lg border border-[#cbb094]">
+               <button onClick={() => setBankTab('song')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'song' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                   <Music size={12}/> Morceaux
+               </button>
+               <button onClick={() => setBankTab('exercise')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'exercise' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                   <Activity size={12}/> Exercices
+               </button>
+               <button onClick={() => setBankTab('user')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'user' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                   <User size={12}/> Mes Tabs
+               </button>
+           </div>
         </div>
-      )}
 
-      {myBlocksModalOpen && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setMyBlocksModalOpen(false)}>
-               <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 border-b border-[#cbb094] flex justify-between items-center bg-[#dcc0a3]">
-                        <h3 className="font-bold text-lg text-[#5d4037] flex items-center gap-2"><LayoutGrid size={20}/> Mes Blocs Sauvegardés</h3>
-                        <button onClick={() => setMyBlocksModalOpen(false)}><X size={20}/></button>
-                    </div>
-                    {savedBlocks.length > 0 && (
-                        <div className="p-2 border-b border-[#cbb094] bg-[#dcc0a3] flex justify-between items-center animate-in slide-in-from-top-2">
-                             <span className="text-xs font-bold text-[#8d6e63] ml-2">
-                                 {selectedBlockIdsForDeletion.length > 0 ? `${selectedBlockIdsForDeletion.length} sélectionné(s)` : 'Sélectionner pour supprimer'}
+        {/* LIST */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+            <h3 className="text-xs font-black text-[#8d6e63] uppercase tracking-wider mb-2 px-2 mt-2 flex justify-between items-center">
+                <span>{bankTab === 'song' ? 'Chansons' : bankTab === 'exercise' ? 'Exercices' : 'Mes Créations'}</span>
+                <span className="bg-[#cbb094] text-[#5d4037] px-1.5 py-0.5 rounded text-[10px]">{filteredPresets.length}</span>
+            </h3>
+            
+            <div className="flex flex-col gap-1">
+                {filteredPresets.map((preset) => (
+                    <button 
+                        key={preset.name}
+                        onClick={() => { setSelectedPresetName(preset.name); handleLoadSelectedPreset(); }} 
+                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all border border-transparent group relative
+                           ${selectedPresetName === preset.name 
+                               ? 'bg-[#e5c4a1] border-[#cbb094] shadow-sm' 
+                               : 'hover:bg-[#e5c4a1]/50 hover:border-[#cbb094]/30'}
+                        `}
+                    >
+                        <div className="flex items-center justify-between">
+                             <span className={`text-xs font-bold ${selectedPresetName === preset.name ? 'text-[#5d4037]' : 'text-[#8d6e63] group-hover:text-[#5d4037]'}`}>
+                                 {preset.name}
                              </span>
-                             {selectedBlockIdsForDeletion.length > 0 && (
-                                <button onClick={handleDeleteSelectedBlocks} className={`flex items-center gap-1 px-3 py-1 bg-[#cbb094] text-[#800020] rounded text-xs font-bold hover:bg-[#bfa085] border border-[#800020]/30 transition-colors shadow-sm ${userRole !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    <Trash2 size={14}/> Supprimer la sélection
-                                </button>
+                             {/* Icons for User Presets */}
+                             {bankTab === 'user' && selectedPresetName === preset.name && (
+                                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                     <button onClick={handleShareUserPreset} className="p-1 hover:bg-[#dcc0a3] rounded text-[#8d6e63] hover:text-[#5d4037]" title="Partager par mail"><Mail size={12}/></button>
+                                     {userRole === 'admin' && <button onClick={handleDeleteUserPreset} className="p-1 hover:bg-red-100 rounded text-[#8d6e63] hover:text-red-500" title="Supprimer"><Trash2 size={12}/></button>}
+                                 </div>
                              )}
                         </div>
-                    )}
-                    <div className="p-4 overflow-y-auto custom-scrollbar flex flex-col gap-2 bg-[#e5c4a1]">
-                        {savedBlocks.length === 0 ? (
-                            <p className="text-center text-[#8d6e63] italic py-4">Aucun bloc sauvegardé.</p>
-                        ) : (
-                            savedBlocks.map(block => (
-                                <div key={block.id} className="flex items-center justify-between p-3 bg-[#dcc0a3] rounded border border-[#cbb094] shadow-sm transition-colors hover:bg-[#cbb094]">
-                                    <div className="flex items-center gap-3">
-                                        <input type="checkbox" className="w-4 h-4 accent-[#A67C52] cursor-pointer bg-[#e5c4a1] border-[#cbb094]" checked={selectedBlockIdsForDeletion.includes(String(block.id))} onChange={() => toggleBlockSelection(String(block.id))} disabled={userRole !== 'admin'} />
-                                        <div className="flex flex-col cursor-pointer" onClick={() => toggleBlockSelection(String(block.id))}>
-                                            <span className="font-bold text-[#5d4037]">{block.name}</span>
-                                            <span className="text-xs text-[#8d6e63]">{block.notes.length} notes</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handlePasteBlock(block)} className="px-3 py-1 bg-[#A67C52] text-white text-xs font-bold rounded shadow hover:bg-[#8d6e63] flex items-center gap-1"><ArrowDownToLine size={12}/> Insérer</button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                        {userRole !== 'admin' && savedBlocks.length > 0 && (<p className="text-[10px] text-[#8d6e63] text-center mt-2 flex items-center justify-center gap-1"><Shield size={10}/> Suppression désactivée en mode invité</p>)}
+                    </button>
+                ))}
+                
+                {filteredPresets.length === 0 && (
+                    <div className="text-center py-8 text-xs text-[#8d6e63] italic opacity-70">
+                        Aucun élément trouvé.
                     </div>
-               </div>
-          </div>
-      )}
-
-      {globalTooltip && globalTooltip.visible && (
-          <div className="fixed z-[100] bg-[#e5c4a1] border border-[#A67C52] text-[#5d4037] text-xs font-bold px-2 py-1 rounded shadow-lg pointer-events-none whitespace-pre-line text-center" style={{ left: globalTooltip.x, top: globalTooltip.y }}>{globalTooltip.text}</div>
-      )}
-
-      {/* MOBILE HEADER & SIDEBAR */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-[#d0b090] border-b border-[#cbb094] z-30 flex-none">
-        <div className="font-bold text-[#800020] flex items-center gap-2"><span className="text-lg font-serif">Ngonilélé Tab</span></div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-[#8d6e63] text-white rounded">{isSidebarOpen ? <X size={20} /> : <Menu size={20} />}</button>
-      </div>
-
-      <aside className={`fixed md:relative inset-0 md:inset-auto z-20 w-full bg-[#d0b090] border-r border-[#cbb094] flex flex-col shadow-lg transition-all duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDesktopSidebarOpen ? 'md:w-64 md:translate-x-0 md:opacity-100' : 'md:w-0 md:-translate-x-full md:opacity-0 md:overflow-hidden md:border-none'} pt-16 md:pt-0`}>
-        {/* LOGO SECTION */}
-        <div className="p-6 flex justify-center border-b border-[#cbb094]/50 flex-none">
-             <div className="relative group cursor-default">
-                <img src={`${ASSETS_BASE_URL}texture_ngoni.png`} alt="Ngonilélé" className="h-28 w-28 object-contain relative z-10 transition-transform hover:scale-105"/>
-             </div>
+                )}
+            </div>
         </div>
+        
+        {/* FOOTER - NOUVELLE STRUCTURE */}
+        <div className="p-4 border-t border-[#cbb094] bg-[#e5c4a1]/30 flex flex-col gap-3">
+             {/* Contribuer */}
+             <div className="flex flex-col gap-1">
+                 <h4 className="text-[10px] font-black uppercase tracking-wider text-[#8d6e63] mb-1">Contribuer</h4>
+                 <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Morceau%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                     <Music size={14}/>
+                     <span>Proposer un morceau</span>
+                 </a>
+                 <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Gamme%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                     <Settings size={14}/>
+                     <span>Proposer une gamme</span>
+                 </a>
+             </div>
+             
+             <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
 
-        <div className="p-4 flex flex-col gap-6 overflow-y-auto custom-scrollbar flex-1 whitespace-nowrap">
-            
-            {/* BANQUE SECTION */}
-            <div>
-                <h3 className="font-bold mb-2 flex items-center gap-2 text-sm uppercase tracking-wider text-[#5d4037]/80"><Music size={16} /> Banque</h3>
-                <div className="flex gap-1 mb-2">
-                    <button onClick={() => setBankTab('song')} className={`flex-1 py-1 text-[10px] rounded-l font-bold transition-colors ${bankTab === 'song' ? 'bg-[#8d6e63] text-white' : 'bg-[#e5c4a1] text-[#8d6e63] border border-[#cbb094]'}`}>Morceaux</button>
-                    <button onClick={() => setBankTab('exercise')} className={`flex-1 py-1 text-[10px] font-bold transition-colors ${bankTab === 'exercise' ? 'bg-[#8d6e63] text-white' : 'bg-[#e5c4a1] text-[#8d6e63] border border-[#cbb094]'}`}>Exercices</button>
-                    <button onClick={() => setBankTab('user')} className={`flex-1 py-1 text-[10px] rounded-r font-bold transition-colors ${bankTab === 'user' ? 'bg-[#8d6e63] text-white' : 'bg-[#e5c4a1] text-[#8d6e63] border border-[#cbb094]'}`}>Mes Morceaux</button>
-                </div>
-                <div className="flex flex-col gap-2">
-                    <div className="relative">
-                        <select className="w-full p-2 text-sm bg-[#dcc0a3] border border-[#cbb094] rounded text-[#5d4037] outline-none focus:ring-2 focus:ring-[#A67C52] appearance-none" value={selectedPresetName} onChange={(e) => setSelectedPresetName(e.target.value)}>
-                            {filteredPresets.length === 0 && <option value="" className="bg-[#e5c4a1]">(Vide)</option>}
-                            {filteredPresets.map(p => <option key={p.name} value={p.name} className="bg-[#e5c4a1]">{p.name}</option>)}
-                        </select>
-                         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-[#5d4037]"><ChevronDown size={14} /></div>
-                    </div>
-                    <button onClick={handleLoadSelectedPreset} disabled={!selectedPresetName} className="w-full py-2 bg-[#dcc0a3] hover:bg-[#cbb094] border border-[#bfa085] rounded text-sm font-bold text-[#5d4037] shadow-sm disabled:opacity-50">Charger</button>
-                    
-                    {bankTab === 'user' && selectedPresetName && (
-                        <div className="flex flex-col gap-2 animate-in slide-in-from-top-1">
-                            <button onClick={handleShareUserPreset} className="w-full py-2 bg-[#8d6e63] hover:bg-[#5d4037] text-white rounded text-xs font-bold shadow-sm flex items-center justify-center gap-2 border border-[#8d6e63]">
-                                <Mail size={14}/> Partager par Email
-                            </button>
-                            <button onClick={handleDeleteUserPreset} className={`w-full py-2 bg-[#fdf6e3] hover:bg-[#fdebc8] border border-[#bfa085] rounded text-xs font-bold text-[#5d4037] shadow-sm flex items-center justify-center gap-2 ${userRole !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`} style={{backgroundColor: '#dcc0a3'}}>
-                                <Trash2 size={14}/> Supprimer
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            <hr className="border-[#cbb094]" />
-            
-            {/* CONTRIBUTIONS */}
-            <div>
-                 <h3 className="font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider text-[#5d4037]/80"><Star size={16} fill="#800020" className="text-[#800020]" /> Contribuer</h3>
-                 <div className="flex flex-col gap-2">
-                     <a href="mailto:julienflorin59@gmail.com?subject=Proposition de Gamme Ngonilélé" className="w-full py-2 px-3 bg-[#e5c4a1] hover:bg-[#dcc0a3] border border-[#cbb094] rounded text-xs font-bold text-[#5d4037] flex items-center gap-2 transition-colors">
-                        <Music size={14}/> Proposer une Gamme
-                     </a>
-                     <a href="mailto:julienflorin59@gmail.com?subject=Proposition de Tablature Ngonilélé" className="w-full py-2 px-3 bg-[#e5c4a1] hover:bg-[#dcc0a3] border border-[#cbb094] rounded text-xs font-bold text-[#5d4037] flex items-center gap-2 transition-colors">
-                        <FileText size={14}/> Proposer une Tablature
-                     </a>
-                 </div>
-            </div>
+             {/* Assistance */}
+             <div className="flex flex-col gap-1">
+                 <a href="mailto:julienflorin59@gmail.com?subject=Bug%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#800020] hover:text-red-600 transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                     <Bug size={14}/>
+                     <span>Reporter un bug</span>
+                 </a>
+                 <button onClick={() => setLegendModalOpen(true)} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
+                     <LifeBuoy size={14}/>
+                     <span>Guide d'utilisation</span>
+                 </button>
+             </div>
 
-            <hr className="border-[#cbb094]" />
+             <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
 
-            {/* ASSISTANCE */}
-            <div>
-                 <h3 className="font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider text-[#5d4037]/80"><HelpCircle size={16}/> Assistance</h3>
-                 <div className="flex flex-col gap-2">
-                     <button onClick={() => setLegendModalOpen(true)} className="w-full py-2 px-3 bg-[#e5c4a1] hover:bg-[#dcc0a3] border border-[#cbb094] rounded text-xs font-bold text-[#5d4037] flex items-center gap-2 transition-colors">
-                        <BookOpen size={14}/> Guide d'utilisation
-                     </button>
-                     <a href="mailto:julienflorin59@gmail.com?subject=Rapport de Bug Ngonilélé" className="w-full py-2 px-3 bg-[#e5c4a1] hover:bg-[#dcc0a3] border border-[#cbb094] rounded text-xs font-bold text-[#5d4037] flex items-center gap-2 transition-colors">
-                        <Bug size={14}/> Reporter un bug
-                     </a>
-                 </div>
-            </div>
-
-            <div className="mt-auto pt-6 flex flex-col gap-2">
-                 <div className={`px-2 py-1 rounded text-xs font-bold text-center flex items-center justify-center gap-2 ${userRole === 'admin' ? 'bg-[#8d6e63] text-white' : 'bg-[#dcc0a3] text-[#8d6e63]'}`}>
-                     {userRole === 'admin' ? <Shield size={12}/> : <Users size={12}/>}
-                     {userRole === 'admin' ? 'Licence Activée' : 'Mode Invité'}
-                 </div>
-                 
-                 <div className="text-[10px] text-center text-[#8d6e63] mt-2 border-t border-[#cbb094] pt-2">
-                    <p>Créé par <strong>Julien Florin</strong></p>
-                    <a href="mailto:julienflorin59@gmail.com" className="text-[#5d4037] font-bold hover:underline flex items-center justify-center gap-1 mt-1">
-                        <Send size={10}/> Me contacter
-                    </a>
-                 </div>
-            </div>
+             {/* Credits */}
+             <div className="text-[10px] text-center text-[#8d6e63] leading-tight">
+                 <div className="font-bold">Développé par Julien Florin</div>
+                 <a href="mailto:julienflorin59@gmail.com" className="hover:underline opacity-80 hover:opacity-100">julienflorin59@gmail.com</a>
+                 <div className="opacity-50 mt-1">v1.3.1</div>
+             </div>
         </div>
       </aside>
 
@@ -1463,9 +1714,7 @@ export default function App() {
           <header className="pt-4 px-4 md:pt-8 md:px-10 pb-2 bg-[#e5c4a1] flex-none">
               <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 mb-4">
                  <button onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} className="hidden md:flex items-center justify-center p-2 bg-[#dcc0a3] hover:bg-[#cbb094] rounded-full text-[#5d4037] shadow-sm border border-[#cbb094] transition-all">{isDesktopSidebarOpen ? <ChevronsLeft size={24}/> : <Menu size={24}/>}</button>
-                 <div className="text-center md:text-left">
-                     <h1 className="text-2xl md:text-4xl font-serif font-normal text-[#800020] mb-1">Générateur Tablature Ngonilélé</h1>
-                 </div>
+                 {/* Title Removed from here */}
                  {/* HIDDEN: Open/Save Buttons removed here */}
                  <input type="file" accept=".json" ref={loadProjectInputRef} onChange={handleLoadProject} className="hidden" />
               </div>
@@ -1479,7 +1728,7 @@ export default function App() {
 
           <div className="flex-1 bg-[#e5c4a1] border-t border-[#cbb094] p-1 md:p-2 overflow-y-auto scrollbar-hide flex flex-col min-h-0 relative">
               
-              {/* INSERT TEXT & MENU MODALS (Unchanged) ... */}
+              {/* INSERT TEXT & MENU MODALS */}
               {textInputModal.visible && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
                   <div className="bg-[#e5c4a1] border-2 border-[#A67C52] rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4">
@@ -1494,23 +1743,23 @@ export default function App() {
               )}
 
               {selectionMenu.visible && (
-                   <div className="fixed z-[60] bg-[#e5c4a1] border border-[#cbb094] rounded-lg shadow-xl p-2 flex flex-col gap-1 min-w-[180px]" style={{ left: selectionMenu.x, top: selectionMenu.y }} onClick={(e) => e.stopPropagation()}>
-                        <div className="text-[10px] uppercase font-bold text-[#8d6e63] px-2 py-1 mb-1 border-b border-[#cbb094]/50 flex justify-between">
+                   <div className="fixed z-[60] bg-[#e5c4a1] border border-[#cbb094] rounded-lg shadow-xl p-1.5 flex flex-col gap-1 min-w-[140px]" style={{ left: selectionMenu.x, top: selectionMenu.y }} onClick={(e) => e.stopPropagation()}>
+                        <div className="text-[9px] uppercase font-bold text-[#8d6e63] px-2 py-1 mb-1 border-b border-[#cbb094]/50 flex justify-between">
                             <span>{selectionMenu.selectedIds.length} notes</span>
                             <button onClick={() => { setSelectedNoteIds([]); setSelectionMenu({ ...selectionMenu, visible: false}); }} className="hover:text-red-500"><X size={12}/></button>
                         </div>
-                        <button onClick={handleDuplicateSelection} className="flex items-center gap-3 px-3 py-2 hover:bg-[#dcc0a3] rounded text-sm font-bold text-[#5d4037] text-left"><Repeat size={16} /><span>Répéter (Dupliquer)</span></button>
-                        <button onClick={handleOpenBlockNameModal} className={`flex items-center gap-3 px-3 py-2 hover:bg-[#dcc0a3] rounded text-sm font-bold text-[#5d4037] text-left ${userRole !== 'admin' ? 'opacity-50' : ''}`}><Save size={16} /><span>Sauvegarder en Bloc</span></button>
+                        <button onClick={handleDuplicateSelection} className="flex items-center gap-3 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] text-left"><Repeat size={14} /><span>Répéter (Dupliquer)</span></button>
+                        <button onClick={handleOpenBlockNameModal} className={`flex items-center gap-3 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] text-left ${userRole !== 'admin' ? 'opacity-50' : ''}`}><Save size={14} /><span>Sauvegarder en Bloc</span></button>
                         <hr className="border-[#cbb094] my-1"/>
-                        <button onClick={handleDeleteSelection} className="flex items-center gap-3 px-3 py-2 hover:bg-red-100 rounded text-sm font-bold text-red-600 text-left"><Trash2 size={16} /><span>Supprimer tout</span></button>
+                        <button onClick={handleDeleteSelection} className="flex items-center gap-3 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] text-left"><Trash2 size={14} /><span>Supprimer tout</span></button>
                    </div>
               )}
 
               {insertMenu.visible && (
-                   <div className="fixed z-[60] bg-[#e5c4a1] border border-[#cbb094] rounded-lg shadow-xl p-2 flex flex-col gap-1 min-w-[160px]" style={{ left: insertMenu.x, top: insertMenu.y }} onClick={(e) => e.stopPropagation()}>
-                        <div className="text-[10px] uppercase font-bold text-[#8d6e63] px-2 py-1 mb-1 border-b border-[#cbb094]/50">Action</div>
-                        {insertMenu.stringId && <button onClick={() => handleMenuAction('NOTE')} className="flex items-center gap-3 px-3 py-2 hover:bg-[#dcc0a3] rounded text-sm font-bold text-[#5d4037] text-left"><Music size={16} /><span>Ajouter Note</span></button>}
-                        <button onClick={() => handleMenuAction('TEXT')} className="flex items-center gap-3 px-3 py-2 hover:bg-[#dcc0a3] rounded text-sm font-bold text-[#5d4037] text-left"><MessageSquarePlus size={16} /><span>Insérer Texte</span></button>
+                   <div className="fixed z-[60] bg-[#e5c4a1] border border-[#cbb094] rounded-lg shadow-xl p-1.5 flex flex-col gap-1 min-w-[130px]" style={{ left: insertMenu.x, top: insertMenu.y }} onClick={(e) => e.stopPropagation()}>
+                        <div className="text-[9px] uppercase font-bold text-[#8d6e63] px-2 py-1 mb-1 border-b border-[#cbb094]/50">Action</div>
+                        {insertMenu.stringId && <button onClick={() => handleMenuAction('NOTE')} className="flex items-center gap-3 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] text-left"><Music size={14} /><span>Ajouter Note</span></button>}
+                        <button onClick={() => handleMenuAction('TEXT')} className="flex items-center gap-3 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] text-left"><MessageSquarePlus size={14} /><span>Insérer Texte</span></button>
                    </div>
               )}
 
@@ -1521,13 +1770,22 @@ export default function App() {
               )}
 
               {editModal.visible && editModal.note && (
-                  <div className="fixed z-50 bg-[#e5c4a1] border border-[#cbb094] rounded-lg shadow-xl p-2 flex flex-col gap-1 min-w-[160px]" style={{ left: editModal.x, top: editModal.y }} onClick={(e) => e.stopPropagation()}>
-                      <div className="text-[10px] font-bold text-[#8d6e63] px-2 pb-1 mb-1 border-b border-[#cbb094] flex items-center justify-between"><span>Note : {currentTuning[editModal.note.stringId]}</span></div>
-                      <div className="text-[10px] font-bold text-[#5d4037] px-2 mb-1">Doigté :</div>
-                      <button onClick={() => handleUpdateFinger(editModal.note!, 'P')} className={`flex items-center gap-2 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] ${editModal.note.doigt === 'P' ? 'bg-[#8d6e63] text-white' : ''}`}><span>👍</span> Pouce</button>
-                      <button onClick={() => handleUpdateFinger(editModal.note!, 'I')} className={`flex items-center gap-2 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-xs font-bold text-[#5d4037] ${editModal.note.doigt === 'I' ? 'bg-[#8d6e63] text-white' : ''}`}><span>☝️</span> Index</button>
-                      <hr className="border-[#cbb094] my-1"/>
-                      <button onClick={deleteNote} className="flex items-center gap-2 px-2 py-2 hover:bg-red-100 rounded text-xs font-bold text-red-600"><Trash2 size={14} /> Supprimer</button>
+                  <div className="fixed z-50 bg-[#e5c4a1] border border-[#cbb094] rounded-lg shadow-xl p-1.5 flex flex-col gap-1 min-w-[130px]" style={{ left: editModal.x, top: editModal.y }} onClick={(e) => e.stopPropagation()}>
+                      {editModal.note.stringId === 'TEXTE' ? (
+                         <div className="text-[9px] font-bold text-[#8d6e63] px-2 pb-1 mb-1 border-b border-[#cbb094]">
+                            Texte : {editModal.note.message}
+                         </div>
+                      ) : (
+                         <>
+                            <div className="text-[9px] font-bold text-[#8d6e63] px-2 pb-1 mb-1 border-b border-[#cbb094] flex items-center justify-between"><span>Note : {currentTuning[editModal.note.stringId]}</span></div>
+                            <div className="text-[9px] font-bold text-[#5d4037] px-2 mb-1">Doigté :</div>
+                            <button onClick={() => handleUpdateFinger(editModal.note!, 'P')} className={`flex items-center gap-2 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-[10px] font-bold text-[#5d4037] ${editModal.note.doigt === 'P' ? 'bg-[#8d6e63] text-white' : ''}`}><span>👍</span> Pouce</button>
+                            <button onClick={() => handleUpdateFinger(editModal.note!, 'I')} className={`flex items-center gap-2 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-[10px] font-bold text-[#5d4037] ${editModal.note.doigt === 'I' ? 'bg-[#8d6e63] text-white' : ''}`}><span>☝️</span> Index</button>
+                            <hr className="border-[#cbb094] my-1"/>
+                         </>
+                      )}
+                      
+                      <button onClick={deleteNote} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#dcc0a3] rounded text-[10px] font-bold text-[#5d4037]"><Trash2 size={12} /> Supprimer</button>
                   </div>
               )}
 
@@ -1561,11 +1819,11 @@ export default function App() {
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="font-black mb-1 text-[#5d4037] border-b-2 border-[#5d4037]/20 pb-0.5 text-xs md:text-sm text-center">Main Gauche (G)</h4>
-                                    <div className="flex flex-col gap-1.5">{STRING_CONFIGS.filter(s => s.hand === 'G').sort((a,b) => a.index - b.index).map(str => (<StringSelector key={str.stringId} stringId={str.stringId} currentNote={currentTuning[str.stringId] || 'C4'} onNoteChange={handleNoteChange} />))}</div>
+                                    <div className="flex flex-col gap-1.5">{STRING_CONFIGS.filter(s => s.hand === 'G').sort((a,b) => a.index - b.index).map(str => (<StringSelector key={str.stringId} stringId={str.stringId} currentNote={currentTuning[str.stringId] || 'C4'} onNoteChange={handleNoteChange} hand="G" />))}</div>
                                 </div>
                                 <div>
                                     <h4 className="font-black mb-1 text-[#5d4037] border-b-2 border-[#5d4037]/20 pb-0.5 text-xs md:text-sm text-center">Main Droite (D)</h4>
-                                    <div className="flex flex-col gap-1.5">{STRING_CONFIGS.filter(s => s.hand === 'D').sort((a,b) => a.index - b.index).map(str => (<StringSelector key={str.stringId} stringId={str.stringId} currentNote={currentTuning[str.stringId] || 'C4'} onNoteChange={handleNoteChange} />))}</div>
+                                    <div className="flex flex-col gap-1.5">{STRING_CONFIGS.filter(s => s.hand === 'D').sort((a,b) => a.index - b.index).map(str => (<StringSelector key={str.stringId} stringId={str.stringId} currentNote={currentTuning[str.stringId] || 'C4'} onNoteChange={handleNoteChange} hand="D" />))}</div>
                                 </div>
                              </div>
                          </div>
@@ -1664,16 +1922,29 @@ export default function App() {
                                 {/* Voice Input */}
                                 <button 
                                     onClick={toggleVoiceInput}
-                                    className={`flex items-center gap-1 px-2 h-7 rounded shadow border transition-colors font-medium text-xs ${isListening ? 'bg-red-600 text-white border-red-600 animate-pulse' : 'bg-[#e5c4a1] text-[#5d4037] border-[#cbb094] hover:bg-[#cbb094]'}`}
-                                    data-tooltip={`Dites 1D.. ou 2D1..\nou 4G1/2 ou 3G1/4...`}
+                                    className={`flex items-center gap-1 px-2 h-7 rounded shadow border transition-colors font-medium text-xs ${isListening ? 'bg-red-600 text-white border-red-600' : 'bg-[#e5c4a1] text-[#5d4037] border-[#cbb094] hover:bg-[#cbb094]'}`}
+                                    data-tooltip={`Cliquez sur une ligne de la grille\npuis dictez la note (ex: "1D", "2G")`}
                                 >
-                                    {isListening ? <Square size={12} className="animate-bounce" /> : <Mic size={12} />}
-                                    <span>{isListening ? 'Stop' : 'Saisie Vocale'}</span>
+                                    {isListening ? (
+                                        <>
+                                            <Square size={12} />
+                                            {/* Visual Waveform */}
+                                            <div className="flex items-center gap-[2px] h-3 px-1">
+                                                <div className="w-[2px] bg-white h-2 animate-[pulse_0.6s_ease-in-out_infinite]"></div>
+                                                <div className="w-[2px] bg-white h-3 animate-[pulse_0.4s_ease-in-out_infinite]"></div>
+                                                <div className="w-[2px] bg-white h-1.5 animate-[pulse_0.7s_ease-in-out_infinite]"></div>
+                                                <div className="w-[2px] bg-white h-3 animate-[pulse_0.5s_ease-in-out_infinite]"></div>
+                                                <div className="w-[2px] bg-white h-2 animate-[pulse_0.6s_ease-in-out_infinite]"></div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Mic size={12} />
+                                            <span>Saisie Vocale</span>
+                                        </>
+                                    )}
                                 </button>
-                                {isListening && <div className="flex flex-col text-[8px] leading-tight text-[#8d6e63] font-bold bg-[#e5c4a1]/80 px-1 rounded border border-[#cbb094] max-w-[80px] truncate h-7 justify-center">
-                                    <span>Écoute...</span>
-                                    <span className="text-[#5d4037]">{voiceLog || "-"}</span>
-                                </div>}
+                                {isListening && <div className="hidden">Log: {voiceLog}</div>}
 
                                 {/* MIDI Input */}
                                 <button
@@ -1699,11 +1970,13 @@ export default function App() {
                                     tuning={currentTuning}
                                     fingeringMode={fingeringMode}
                                     activeStringId={activeVoiceStringId}
+                                    playbackFeedback={playbackFeedback}
                                 />
                            </div>
 
                            {/* Visualizer Below */}
                            <div className="flex-1 relative min-h-0">
+                                {/* Countdown Removed */}
                                 <Visualizer 
                                     ref={visualizerRef}
                                     data={activeData}
@@ -1749,20 +2022,17 @@ export default function App() {
                             <div className="bg-[#dcc0a3] p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><Video size={32}/></div>
                                 <h3 className="font-bold text-lg">Export Vidéo</h3>
-                                <p className="text-sm opacity-80">Vidéo défilante (MP4/WebM).</p>
+                                <p className="text-sm opacity-80">Vidéo défilante (Format WebM).</p>
                                 <div className="flex flex-col gap-2 w-full text-xs font-bold text-[#5d4037]">
-                                    <div className="flex justify-center gap-3 bg-[#e5c4a1] p-1 rounded">
-                                         <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={videoFormat === 'webm'} onChange={() => setVideoFormat('webm')} className="accent-[#8d6e63]"/> WebM</label>
-                                         <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={videoFormat === 'mp4'} onChange={() => setVideoFormat('mp4')} className="accent-[#8d6e63]"/> MP4</label>
-                                    </div>
                                     <div className="flex justify-center gap-2 bg-[#e5c4a1] p-1 rounded items-center">
                                          <span>Vitesse :</span>
                                          <select value={exportPlaybackSpeed} onChange={(e) => setExportPlaybackSpeed(parseFloat(e.target.value))} className="bg-transparent outline-none cursor-pointer">
-                                             <option value={1}>1.0x</option>
-                                             <option value={0.75}>0.75x</option>
-                                             <option value={0.5}>0.5x</option>
+                                             <option value={1} className="bg-[#e5c4a1]">1.0x</option>
+                                             <option value={0.75} className="bg-[#e5c4a1]">0.75x</option>
+                                             <option value={0.5} className="bg-[#e5c4a1]">0.5x</option>
                                          </select>
                                     </div>
+                                    <p className="text-[10px] text-[#8d6e63] mt-1 italic leading-tight text-center font-normal">Si problème pour lire la vidéo, installer VLC</p>
                                 </div>
                                 <button onClick={handleExportVideo} disabled={isExporting || isRecording} className="mt-auto px-6 py-2 bg-[#8d6e63] text-white font-bold rounded shadow hover:bg-[#6d4c41] flex items-center gap-2 disabled:opacity-50">
                                     {isRecording ? <Loader2 size={16} className="animate-spin"/> : <Film size={16}/>}

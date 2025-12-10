@@ -1,3 +1,4 @@
+
 import { ParsedNote, Tuning, TICKS_QUARTER } from '../types';
 import { BASE_TUNING, ASSETS_BASE_URL } from '../constants';
 // @ts-ignore
@@ -227,11 +228,11 @@ class AudioEngine {
     const effectiveBpm = this.bpm * this.playbackSpeed;
     const secondsPerTick = (60 / effectiveBpm) / 12;
 
-    let effectiveStartTick = startTick;
-    if (startTick === 0) {
-        effectiveStartTick = - (2 * TICKS_QUARTER); 
-    }
-
+    // FIX: Remove negative offset when startTick is 0. 
+    // This allows exact visual sync with the "yellow cursor" starting at 0.
+    const effectiveStartTick = startTick;
+    
+    // 0.1s buffer to ensure the first note isn't missed by the scheduler if it's immediate
     this.startTime = this.ctx.currentTime - (effectiveStartTick * secondsPerTick) + 0.1; 
 
     this.nextNoteIndex = this.notes.findIndex(n => n.tick >= effectiveStartTick);
