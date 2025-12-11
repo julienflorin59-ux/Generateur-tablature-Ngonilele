@@ -1,8 +1,6 @@
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Play, Square, FileText, Music, Info, Download, Code, Video, Grid3X3, Settings, Share2, Star, Edit3, Headphones, Plus, Menu, X, Box, ChevronDown, Minus, ChevronsLeft, Activity, Save, FolderOpen, Palette, FileDown, Pause, SkipBack, Trash2, Clock, Ban, RotateCcw, Edit, Timer, Gauge, Undo2, ArrowDownToLine, MousePointerClick, MessageSquarePlus, Wand2, Hand, Zap, MoveRight, BookOpen, Mic, MicOff, Film, FileType, CheckCircle2, MousePointer, ThumbsUp, Copy, Clipboard, Repeat, LayoutGrid, Lock, User, UserCheck, Users, Shield, ShieldAlert, KeyRound, Loader2, PenLine, Mail, Bug, HelpCircle, Send, MousePointer2, Smartphone, Piano, ExternalLink, ChevronUp, LifeBuoy } from 'lucide-react';
-import { PRESETS, NOTE_COLORS, SCALES_PRESETS, ASSETS_BASE_URL, STRING_CONFIGS, BASE_TUNING, ALL_CHROMATIC_NOTES, AVAILABLE_SAMPLES } from './constants';
+import { Play, Square, FileText, Music, Info, Download, Code, Video, Grid3X3, Settings, Share2, Star, Edit3, Headphones, Plus, Menu, X, Box, ChevronDown, Minus, ChevronsLeft, Activity, Save, FolderOpen, Palette, FileDown, Pause, SkipBack, Trash2, Clock, Ban, RotateCcw, Edit, Timer, Gauge, Undo2, ArrowDownToLine, MousePointerClick, MessageSquarePlus, Wand2, Hand, Zap, MoveRight, BookOpen, Mic, MicOff, Film, FileType, CheckCircle2, MousePointer, ThumbsUp, Copy, Clipboard, Repeat, LayoutGrid, Lock, User, UserCheck, Users, Shield, ShieldAlert, KeyRound, Loader2, PenLine, Mail, Bug, HelpCircle, Send, MousePointer2, Smartphone, Piano, ExternalLink, ChevronUp, LifeBuoy, FilePlus } from 'lucide-react';
+import { PRESETS, NOTE_COLORS, SCALES_PRESETS, ASSETS_BASE_URL, STRING_CONFIGS, BASE_TUNING, ALL_CHROMATIC_NOTES, AVAILABLE_SAMPLES, HEADER_SILENCE } from './constants';
 import { parseTablature } from './utils/parser';
 import { audioEngine } from './utils/audio';
 import { generatePDF } from './utils/pdf';
@@ -11,7 +9,6 @@ import StringPad from './components/StringPad';
 import { Tuning, ParsedNote, TICKS_QUARTER, PlaybackState, SongPreset, TICKS_COUNT_IN } from './types';
 
 // --- CONFIGURATION DES LICENCES ---
-// Liste des codes d'accès valides (Licences)
 const VALID_ACCESS_CODES = [
   'julo59',           // Administrateur Principal
   'DAVID-L-2025',     // David Lesage
@@ -20,11 +17,58 @@ const VALID_ACCESS_CODES = [
   'JULIE-D-2025'      // Julie Denudt
 ]; 
 
+// CONSTANTE IMAGE MENU (Pour préchargement)
+const MENU_BG_URL = "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandalamenu.png";
+
+// BACKGROUND IMAGES MAP
+const BG_IMAGES = {
+    TUNING: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala1.png",
+    EDITOR: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala2.png",
+    MEDIA: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala3.png"
+};
+
 // Helper to get color for a specific note
 const getNoteColor = (note: string) => {
   if (!note) return '#ccc';
   const base = note.charAt(0).toUpperCase();
   return NOTE_COLORS[base] || '#ccc';
+};
+
+// --- DYNAMIC BACKGROUND COMPONENT ---
+// OPTIMISATION : Les images sont préchargées dans App.tsx. 
+// Ici, on gère l'affichage en couches superposées avec transition d'opacité.
+interface DynamicBackgroundProps {
+    activeTab: 'tuning' | 'editor' | 'media';
+}
+const DynamicBackground: React.FC<DynamicBackgroundProps> = ({ activeTab }) => {
+    return (
+        <>
+            {Object.entries(BG_IMAGES).map(([key, url]) => {
+                let isActive = false;
+                if (activeTab === 'tuning' && key === 'TUNING') isActive = true;
+                if (activeTab === 'editor' && key === 'EDITOR') isActive = true;
+                if (activeTab === 'media' && key === 'MEDIA') isActive = true;
+
+                return (
+                    <div 
+                        key={key}
+                        className="absolute inset-0 pointer-events-none transition-opacity duration-300 ease-in-out z-[-1]"
+                        style={{
+                            backgroundImage: `url('${url}')`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'center',
+                            backgroundSize: 'cover',
+                            // MODIF: Opacité augmentée (0.25) pour compenser la texture froissée en overlay
+                            opacity: isActive ? 0.25 : 0, 
+                            mixBlendMode: 'multiply',
+                            filter: 'sepia(0.6) contrast(1.1) brightness(0.9) saturate(0.8)', // Effet photo vieillie
+                            willChange: 'opacity' // Optimisation GPU
+                        }}
+                    />
+                );
+            })}
+        </>
+    );
 };
 
 // Helper component for String Selector
@@ -55,7 +99,6 @@ const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, 
 
   const isLeft = hand === 'G';
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -77,7 +120,6 @@ const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, 
           </span>
           
           <div className="relative flex-1">
-            {/* TRIGGER BUTTON */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`w-full relative h-8 flex items-center justify-center transition-all duration-200 shadow-sm rounded-xl outline-none border
@@ -85,7 +127,6 @@ const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, 
                 `}
                 style={{ 
                     borderColor: color,
-                    // Gradient direction mirrors based on hand. Opacity set to 80% (CC)
                     background: `linear-gradient(to ${isLeft ? 'right' : 'left'}, ${color}CC, transparent)`
                 }}
             >
@@ -95,7 +136,6 @@ const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, 
                 </div>
             </button>
 
-            {/* CUSTOM DROPDOWN MENU */}
             {isOpen && (
                 <div className="absolute top-full left-0 w-full z-[100] mt-1 max-h-48 overflow-y-auto custom-scrollbar rounded-xl border-2 border-[#cbb094] bg-[#fdf6e3] shadow-xl animate-in fade-in zoom-in-95 duration-100">
                     <div className="py-1 flex flex-col gap-0.5 p-1">
@@ -110,9 +150,7 @@ const StringSelector: React.FC<StringSelectorProps> = ({ stringId, currentNote, 
                                         ${isSelected ? 'brightness-110 font-black' : 'hover:brightness-110 hover:scale-[1.02]'}
                                     `}
                                     style={{
-                                        // Visualiser la couleur par une bande horizontale (dégradé comme la barre principale)
                                         background: `linear-gradient(to right, ${noteColor}99, ${noteColor}33)`,
-                                        // Bordure de la couleur de la note si sélectionné, sinon transparent (pour éviter le saut de layout)
                                         border: isSelected ? `2px solid ${noteColor}` : '2px solid transparent'
                                     }}
                                 >
@@ -165,8 +203,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
     };
 
     return (
-        <div className="min-h-screen w-full bg-[#e5c4a1] flex flex-col items-center justify-center p-4 text-[#5d4037]">
-            <div className="w-full max-w-md bg-[#dcc0a3] border-2 border-[#cbb094] rounded-2xl shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-300">
+        <div className="min-h-screen w-full bg-transparent flex flex-col items-center justify-center p-4 text-[#5d4037]">
+            <div className="w-full max-w-md bg-[#dcc0a3]/90 border-2 border-[#cbb094] rounded-2xl shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-300 backdrop-blur-sm relative z-10">
                 <div className="flex flex-col items-center gap-2">
                     <div className="w-16 h-16 bg-[#A67C52] text-white rounded-full flex items-center justify-center shadow-lg mb-2">
                         <Lock size={32} />
@@ -227,7 +265,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
                     <span className="text-[10px] bg-[#e5c4a1] px-2 py-0.5 rounded-full opacity-60 group-hover:opacity-100 transition-opacity">Lecture seule</span>
                 </button>
             </div>
-            <div className="mt-8 text-xs font-bold text-[#8d6e63]/60">
+            <div className="mt-8 text-xs font-bold text-[#8d6e63]/60 relative z-10">
                 v1.0.3 • Ngonilélé Generator
             </div>
         </div>
@@ -260,8 +298,8 @@ export default function App() {
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
   const [bankTab, setBankTab] = useState<'song' | 'exercise' | 'user'>('song');
   const [selectedPresetName, setSelectedPresetName] = useState<string>('');
-  const [tabTitle, setTabTitle] = useState<string>("Ma Composition"); // New State for Title
-  const [code, setCode] = useState(PRESETS[0].code);
+  const [tabTitle, setTabTitle] = useState<string>("Ma Composition"); 
+  const [code, setCode] = useState(HEADER_SILENCE);
   const [codeHistory, setCodeHistory] = useState<string[]>([]); 
   const [bpm, setBpm] = useState(100);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0); 
@@ -272,45 +310,34 @@ export default function App() {
   const [playingSource, setPlayingSource] = useState<'editor' | 'scale'>('editor'); 
   const [isRecording, setIsRecording] = useState(false);
   const [isExporting, setIsExporting] = useState(false); 
-  // Initial current tick logic modified: start at 0 but we will handle the "Start" offset logic elsewhere
-  // Or rather, if we load a new preset, it starts at 24 ticks structurally.
   const [currentTick, setCurrentTick] = useState(TICKS_COUNT_IN);
   const currentTickRef = useRef(TICKS_COUNT_IN);
-  const cursorTickRef = useRef(TICKS_COUNT_IN); // For rapid StringPad input handling
+  const cursorTickRef = useRef(TICKS_COUNT_IN); 
 
-  // Feedback State for StringPad
   const [playbackFeedback, setPlaybackFeedback] = useState<Record<string, number>>({});
   const playbackIndexRef = useRef(0);
 
-  // Export Settings
   const [exportPlaybackSpeed, setExportPlaybackSpeed] = useState(1.0);
 
-  // Voice Input State
   const [isListening, setIsListening] = useState(false);
   const [voiceLog, setVoiceLog] = useState("");
   const recognitionRef = useRef<any>(null);
   const isVoiceActiveRef = useRef(false);
   const [activeVoiceStringId, setActiveVoiceStringId] = useState<string | null>(null);
   
-  // Voice Buffer - Removed complicated timing logic, keeping basic buffer for pairing numbers + letters
   const voiceBufferRef = useRef<{ stringId: string, timestamp: number } | null>(null);
-  const voicePartialRef = useRef<{ value: string, type: 'number'|'hand' } | null>(null); // To handle "1... G" split
+  const voicePartialRef = useRef<{ value: string, type: 'number'|'hand' } | null>(null); 
 
-  // MIDI Input State
   const [isMidiEnabled, setIsMidiEnabled] = useState(false);
   
-  // IFRAME DETECTION
   const [isInIframe, setIsInIframe] = useState(false);
   const [canOpenInNewTab, setCanOpenInNewTab] = useState(false);
 
-  // Refs to track export state independently of closure staleness
   const isExportingRef = useRef(false);
   const recordedMimeTypeRef = useRef<string>('video/webm');
   
-  // Video format selection
   const [videoFormat, setVideoFormat] = useState<'webm' | 'mp4'>('webm');
 
-  // Modals & Menus
   const [editModal, setEditModal] = useState<EditModalState>({ visible: false, note: null, x: 0, y: 0 });
   const [insertMenu, setInsertMenu] = useState<InsertMenuState>({ visible: false, x: 0, y: 0, tick: 0 });
   const [selectionMenu, setSelectionMenu] = useState<SelectionMenuState>({ visible: false, x: 0, y: 0, selectedIds: [] });
@@ -321,10 +348,12 @@ export default function App() {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [userPresets, setUserPresets] = useState<SongPreset[]>([]);
+  
+  // NEW STATE: Confirmation Modal for New Project
+  const [confirmNewProjectModal, setConfirmNewProjectModal] = useState(false);
 
-  // Selection & Clipboard & Blocks
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]); // Multi-selection
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [savedBlocks, setSavedBlocks] = useState<SavedBlock[]>([]);
   const [blockNameModal, setBlockNameModal] = useState<{ visible: boolean; defaultName?: string }>({ visible: false });
   const [blockNameInput, setBlockNameInput] = useState("");
@@ -334,7 +363,6 @@ export default function App() {
   const [selectedScaleName, setSelectedScaleName] = useState(SCALES_PRESETS[0].name);
   const [currentTuning, setCurrentTuning] = useState<Tuning>(SCALES_PRESETS[0].tuning);
 
-  // Refs for State in Effects
   const currentTuningRef = useRef(currentTuning);
   
   const visualizerRef = useRef<VisualizerHandle>(null);
@@ -342,10 +370,18 @@ export default function App() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const loadProjectInputRef = useRef<HTMLInputElement>(null);
 
+  // ... (PRELOAD IMAGES EFFECT & Other useEffects remain unchanged) ...
+  useEffect(() => {
+      // PRELOAD DE TOUTES LES IMAGES Y COMPRIS LE MENU
+      const imagesToPreload = [...Object.values(BG_IMAGES), MENU_BG_URL];
+      imagesToPreload.forEach(url => {
+          const img = new Image();
+          img.src = url;
+      });
+  }, []);
+
   useEffect(() => { 
       currentTickRef.current = currentTick; 
-      // Sync cursorTickRef only if we are not in rapid-fire mode (heuristically)
-      // or simply sync it whenever currentTick changes externally (like seek)
       cursorTickRef.current = currentTick;
   }, [currentTick]);
   
@@ -354,7 +390,6 @@ export default function App() {
   useEffect(() => { currentTuningRef.current = currentTuning; }, [currentTuning]);
 
   useEffect(() => {
-    // Detect iframe and URL capability
     try {
         if (window.self !== window.top) {
             setIsInIframe(true);
@@ -418,7 +453,6 @@ export default function App() {
         } catch(e) { console.error(e); } 
     }
     
-    // Cleanup Speech Recognition on unmount
     return () => {
         isVoiceActiveRef.current = false;
         if (recognitionRef.current) {
@@ -437,39 +471,30 @@ export default function App() {
 
   const activeData = playingSource === 'scale' ? scaleData : parsedData;
 
-  // Reset feedback state on stop
   useEffect(() => {
       if (playbackState === PlaybackState.STOPPED) {
           setPlaybackFeedback({});
           playbackIndexRef.current = 0;
       }
       if (playbackState === PlaybackState.PLAYING) {
-        // SYNC FIX: Ensure index is correct at start of playback to avoid "first note always lights up" bug
         const startTick = currentTickRef.current;
         const newIndex = parsedData.findIndex(n => n.tick >= startTick);
         playbackIndexRef.current = newIndex !== -1 ? newIndex : parsedData.length;
     }
   }, [playbackState, parsedData]);
 
-  // Monitor currentTick for note triggers (Visual Feedback Logic)
   useEffect(() => {
       if (playbackState !== PlaybackState.PLAYING) return;
 
       let localFeedbackUpdate = { ...playbackFeedback };
       let didUpdate = false;
       
-      // Check pending notes
       while (playbackIndexRef.current < parsedData.length) {
           const note = parsedData[playbackIndexRef.current];
           
-          // STRICT TIMING: Remove the loose lookahead (-0.2).
-          // Only trigger if we have reached or passed the note.
-          // Note: Since we removed the negative offset in AudioEngine, strict equality logic works better.
           if (currentTick >= note.tick) { 
-              // Determine duration until next note (for lighting up correct button)
-              let effectiveDuration = 12; // Default to quarter note
+              let effectiveDuration = 12; 
               
-              // Find the next note chronologically to determine gap
               for(let i = playbackIndexRef.current + 1; i < parsedData.length; i++) {
                   if (parsedData[i].tick > note.tick) {
                       effectiveDuration = parsedData[i].tick - note.tick;
@@ -481,7 +506,6 @@ export default function App() {
               didUpdate = true;
               playbackIndexRef.current++;
 
-              // Auto-clear feedback after short flash
               setTimeout(() => {
                   setPlaybackFeedback(prev => {
                       const next = { ...prev };
@@ -490,7 +514,7 @@ export default function App() {
                   });
               }, 250); 
           } else {
-              break; // Next note is in the future
+              break; 
           }
       }
 
@@ -505,39 +529,32 @@ export default function App() {
   }, [bankTab, userPresets]);
 
   useEffect(() => {
-      if (filteredPresets.length > 0 && !filteredPresets.find(p => p.name === selectedPresetName)) {
+      if (selectedPresetName && filteredPresets.length > 0 && !filteredPresets.find(p => p.name === selectedPresetName)) {
           setSelectedPresetName(filteredPresets[0].name);
       } else if (filteredPresets.length === 0) { setSelectedPresetName(''); }
   }, [bankTab, filteredPresets, selectedPresetName]);
 
   useEffect(() => { 
       audioEngine.setOnEnded(() => { 
-          // Check ref instead of state to avoid stale closure issues
           if (isExportingRef.current) {
               stopRecording();
           }
           setPlaybackState(PlaybackState.STOPPED); 
-          // Stop logic usually resets to 0, but here for user convenience we go to Start of Music (24)
-          // except if we are exporting, in which case we stop silently.
           if (!isExportingRef.current) {
               setCurrentTick(TICKS_COUNT_IN);
           }
       }); 
-  }, []); // Empty deps, we use refs
+  }, []);
 
   useEffect(() => {
     if (playbackState === PlaybackState.PLAYING) {
-      // Audio Engine is already playing if started via playPrerendered (export mode)
-      // Only trigger play() if not already playing or if we want standard playback
       if (!isExporting && !audioEngine.isAudioPlaying) {
           audioEngine.setNotes(activeData);
           audioEngine.setBpm(bpm);
           audioEngine.setPlaybackSpeed(playbackSpeed);
           audioEngine.setOnTick((tick) => setCurrentTick(tick));
-          // IMPORTANT: Reset index logic handled in useEffect[playbackState]
           audioEngine.play(currentTick).catch(err => { setPlaybackState(PlaybackState.STOPPED); setIsRecording(false); });
       } else if (isExporting) {
-          // In export mode, we still need to subscribe to ticks for visualizer
           audioEngine.setOnTick((tick) => setCurrentTick(tick));
       }
     } else if (playbackState === PlaybackState.PAUSED) {
@@ -548,41 +565,32 @@ export default function App() {
   }, [playbackState, activeData, bpm, playbackSpeed, isExporting]); 
   
   const handleNoteAdd = (stringId: string, finger?: string, tick?: number, advanceTicks: number = 0) => {
-      // Use explicit tick (voice/background click) OR fallback to current cursor (StringPad/MIDI)
-      // We use cursorTickRef here to support rapid clicking on StringPad without waiting for React state updates.
       let insertionTick = tick !== undefined ? tick : cursorTickRef.current;
       
-      // RESTRICTION: Impossible d'ajouter une note dans la zone de décompte (0-24 ticks)
       if (insertionTick < TICKS_COUNT_IN) {
-          return; // Silently block or maybe vibrate/alert?
+          return; 
       }
 
       const newNote: ParsedNote = { id: 'temp-new', tick: insertionTick, duration: 0, stringId: stringId, doigt: finger, lineIndex: -1 };
       const allNotes = [...parsedData, newNote];
       regenerateCodeFromAbsolutePositions(allNotes);
       
-      // LOGIC: Advance Cursor only if requested (StringPad / Sequencer)
-      // Voice input passes advanceTicks=0, so it stays on the line (as requested).
       if (playbackState === PlaybackState.STOPPED) {
            if (advanceTicks > 0) { 
                const newTick = insertionTick + advanceTicks;
-               cursorTickRef.current = newTick; // Update ref immediately for rapid clicks
-               setCurrentTick(newTick); // Trigger UI update
+               cursorTickRef.current = newTick; 
+               setCurrentTick(newTick); 
            } else {
-               // For manual placement (voice), ensure our internal ref stays synced to where we just placed it
                cursorTickRef.current = insertionTick;
-               // If tick was explicit (e.g. background click changed it), ensure state reflects it
                if (tick !== undefined && tick !== currentTick) {
                    setCurrentTick(tick);
                }
            }
       }
       
-      // PLAY NOTE SOUND FOR FEEDBACK
       audioEngine.previewString(stringId);
   };
   
-  // Ref for handleNoteAdd to be used in MIDI effect without dependency cycles
   const handleNoteAddRef = useRef(handleNoteAdd);
   useEffect(() => { handleNoteAddRef.current = handleNoteAdd; });
 
@@ -590,7 +598,6 @@ export default function App() {
   useEffect(() => {
       if (!isMidiEnabled) return;
 
-      // INIT AUDIO ENGINE to unlock context on mobile
       audioEngine.init();
       if (audioEngine.ctx?.state === 'suspended') {
           audioEngine.ctx.resume().catch(() => {});
@@ -600,8 +607,6 @@ export default function App() {
 
       const onMIDIMessage = (event: any) => {
           const [status, note, velocity] = event.data;
-          // Note On (channel 1-16): 0x90 to 0x9F. velocity > 0.
-          // Note Off can be 0x80 or Note On with velocity 0.
           const command = status & 0xF0;
           if (command === 0x90 && velocity > 0) {
               const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -609,18 +614,12 @@ export default function App() {
               const noteName = noteNames[note % 12];
               const scientificPitch = `${noteName}${octave}`;
               
-              console.log(`MIDI Input: ${scientificPitch}`);
-
-              // Find string in current tuning (using ref to avoid stale state/dep loops)
               const tuning = currentTuningRef.current;
               const entry = Object.entries(tuning).find(([key, val]) => val === scientificPitch);
               
               if (entry) {
                   const stringId = entry[0];
-                  // Add note via ref
                   handleNoteAddRef.current(stringId, 'P', undefined, 12);
-                  
-                  // Visual Feedback
                   setActiveVoiceStringId(stringId);
                   setTimeout(() => setActiveVoiceStringId(null), 400);
               }
@@ -685,12 +684,10 @@ export default function App() {
   };
 
   const startPlayback = () => { 
-      // Lecture : Démarre TOUJOURS à 0 pour entendre le décompte (sauf si Pause)
       if (playbackState === PlaybackState.PAUSED) {
           setPlayingSource('editor');
           setPlaybackState(PlaybackState.PLAYING); 
       } else {
-          // Playback normal -> start at 0
           setCurrentTick(0);
           setPlayingSource('editor');
           setPlaybackState(PlaybackState.PLAYING);
@@ -701,7 +698,6 @@ export default function App() {
   
   const stopPlayback = () => { 
       setPlaybackState(PlaybackState.STOPPED); 
-      // STOP : On remet le curseur au début de la musique (après le décompte) pour éditer
       setCurrentTick(TICKS_COUNT_IN); 
   };
   
@@ -711,7 +707,6 @@ export default function App() {
       } else { 
           setCurrentTick(0); 
       }
-      // Reset feedback index
       playbackIndexRef.current = 0;
       setPlaybackFeedback({});
   };
@@ -720,7 +715,6 @@ export default function App() {
       setCurrentTick(tick); setNoteTooltip(null);
       if (playbackState === PlaybackState.PLAYING) { audioEngine.play(tick); }
       
-      // Update feedback index to match seek position
       const newIndex = parsedData.findIndex(n => n.tick >= tick);
       playbackIndexRef.current = newIndex !== -1 ? newIndex : parsedData.length;
       setPlaybackFeedback({});
@@ -745,13 +739,12 @@ export default function App() {
 
     if (preset) {
       updateCode(preset.code); setSelectedNoteId(null); setSelectedNoteIds([]);
-      setTabTitle(preset.name); // Update Title
+      setTabTitle(preset.name); 
       if (preset.scaleName) {
           const scalePreset = SCALES_PRESETS.find(s => s.name === preset.scaleName);
           if (scalePreset) { setSelectedScaleName(scalePreset.name); setCurrentTuning(scalePreset.tuning); audioEngine.setTuning(scalePreset.tuning); }
       }
       setPlaybackState(PlaybackState.STOPPED); 
-      // Initialize tick after count-in for editing
       setCurrentTick(TICKS_COUNT_IN); 
       setPlayingSource('editor');
       if (mainTab !== 'editor') setMainTab('editor');
@@ -771,7 +764,7 @@ export default function App() {
       setUserPresets(newPresets);
       localStorage.setItem('ngonilele_user_presets', JSON.stringify(newPresets));
       setSaveModalOpen(false); setSaveName(""); setBankTab('user'); setSelectedPresetName(newPreset.name); 
-      setTabTitle(saveName); // Update current title to saved name
+      setTabTitle(saveName); 
       alert("Tablature enregistrée !");
   };
 
@@ -790,7 +783,6 @@ export default function App() {
       const preset = userPresets.find(p => p.name === selectedPresetName);
       if (!preset) return;
 
-      // 1. Download File
       const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -802,10 +794,30 @@ export default function App() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // 2. Open Mail Client (Deferred slightly to allow download to start)
       setTimeout(() => {
           const subject = encodeURIComponent(`Partage Tablature Ngonilélé : ${preset.name}`);
           const body = encodeURIComponent(`Bonjour,\n\nVoici une tablature que j'ai créée : "${preset.name}".\n\n(Veuillez joindre le fichier .json qui vient d'être téléchargé sur votre appareil)\n\nCordialement.`);
+          window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      }, 500);
+  };
+
+  // --- NEW: SHARE CURRENT PROJECT FEATURE ---
+  const handleShareCurrentProject = () => {
+      const project = { title: tabTitle, version: '1.0', timestamp: new Date().toISOString(), code, tuning: currentTuning, scaleName: selectedScaleName, bpm, rhythmMode };
+      const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = tabTitle.trim().replace(/[^a-z0-9\-_]/gi, '_') || 'projet_ngonilele';
+      a.download = `${safeName}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setTimeout(() => {
+          const subject = encodeURIComponent(`Partage Projet Ngonilélé : ${tabTitle}`);
+          const body = encodeURIComponent(`Bonjour,\n\nVoici un projet Ngonilélé que je souhaite partager : "${tabTitle}".\n\n(Veuillez joindre le fichier .json qui vient d'être téléchargé sur votre appareil)\n\nCordialement.`);
           window.location.href = `mailto:?subject=${subject}&body=${body}`;
       }, 500);
   };
@@ -816,13 +828,11 @@ export default function App() {
       const text = textInputModal.text; const tick = textInputModal.targetTick ?? currentTick;
       if (!text.trim()) { setTextInputModal({ visible: false, text: '' }); return; }
       
-      // Restriction: Pas de texte dans le décompte
       if (tick < TICKS_COUNT_IN) {
           alert("Impossible d'insérer du texte dans la zone de décompte.");
           return;
       }
 
-      // UPDATED: No more .toUpperCase() to respect user case input
       const newEvent: ParsedNote = { id: 'temp-txt', tick: tick, duration: 0, stringId: 'TEXTE', message: text, lineIndex: -1 };
       const allNotes = [...parsedData, newEvent].sort((a, b) => a.tick - b.tick);
       regenerateCodeFromAbsolutePositions(allNotes);
@@ -842,7 +852,6 @@ export default function App() {
           if (note.stringId === 'TEXTE') {
               const delta = Math.max(0, note.tick - lastTick);
               const symbol = delta === 0 ? '+' : delta.toString();
-              // UPDATED: No more .toUpperCase() here, rely on message content
               lines.push(`${symbol}   TXT   ${note.message}`);
               lastTick = note.tick;
               return;
@@ -851,7 +860,6 @@ export default function App() {
           const delta = Math.max(0, note.tick - lastTick);
           let symbol = ''; if (delta === 0) { symbol = '='; } else { symbol = delta.toString(); }
           
-          // MODIF: Si doigt est undefined (mode manuel), on ne l'affiche pas dans le code
           const fingerStr = note.doigt ? `   ${note.doigt}` : '';
           lines.push(`${symbol}   ${note.stringId}${fingerStr}`);
           
@@ -862,7 +870,6 @@ export default function App() {
 
   const handleNoteClick = (note: ParsedNote, x: number, y: number) => { 
       setSelectedNoteId(note.id); setSelectedNoteIds([]); 
-      // Close all other menus to ensure single window focus
       setSelectionMenu({...selectionMenu, visible: false});
       setEditModal({ ...editModal, visible: false });
       setInsertMenu({ ...insertMenu, visible: false });
@@ -871,7 +878,6 @@ export default function App() {
   const handleNoteContextMenu = (note: ParsedNote, x: number, y: number) => {
       setNoteTooltip(null);
       setSelectedNoteId(note.id); setSelectedNoteIds([]);
-      // Close other menus
       setSelectionMenu({ ...selectionMenu, visible: false });
       setInsertMenu({ ...insertMenu, visible: false });
       
@@ -880,7 +886,6 @@ export default function App() {
 
   const handleMultiSelectionFinished = (ids: string[], x: number, y: number) => {
       setSelectedNoteIds(ids); setSelectedNoteId(null);
-      // Close other menus
       setEditModal({ ...editModal, visible: false });
       setInsertMenu({ ...insertMenu, visible: false });
       
@@ -1011,31 +1016,21 @@ export default function App() {
 
   const handleBackgroundClick = (tick: number, stringId: string | undefined, x: number, y: number) => {
       setNoteTooltip(null); 
-      // Close conflicting menus
       setSelectionMenu({...selectionMenu, visible: false});
       setEditModal({ ...editModal, visible: false });
       setSelectedNoteIds([]);
       setSelectedNoteId(null);
       
-      // RESTRICTION: Si on clique dans la zone de décompte, on ne fait QUE déplacer le curseur pour lecture
-      // Pas de menu d'insertion
       if (tick < TICKS_COUNT_IN) {
-          // Previously: handleSeek(0). 
-          // Now: Do nothing because Right Click should not move cursor, and menu is disabled here.
-          // Left Click (Seek) is handled directly by Visualizer calling handleSeekAndClear
           return;
       }
 
       setInsertMenu({ visible: true, tick, stringId, x: Math.min(x + 10, window.innerWidth - 180), y: Math.min(y + 10, window.innerHeight - 150) });
-      
-      // FIX: Ne plus déplacer le curseur jaune lors d'un clic droit (pour ouvrir le menu)
-      // setCurrentTick(tick); 
   };
   
   const handleSeekAndClear = (tick: number) => {
       setSelectedNoteId(null);
       setSelectedNoteIds([]);
-      // Close all menus
       setSelectionMenu({ ...selectionMenu, visible: false });
       setInsertMenu({ ...insertMenu, visible: false });
       setEditModal({ ...editModal, visible: false });
@@ -1046,36 +1041,27 @@ export default function App() {
   const handleMenuAction = (type: 'NOTE' | 'SILENCE' | 'TEXT' | 'PASTE') => {
       const { tick, stringId } = insertMenu;
       if (type === 'NOTE' && stringId) {
-          // MODIF: Gestion du mode manuel pour n'afficher aucun doigté
           let finger: string | undefined;
           if (fingeringMode === 'auto') {
-               // 1, 2, 3 = P (Thumb), 4, 5, 6 = I (Index)
                if (['4D','5D','6D','4G','5G','6G'].includes(stringId)) finger = 'I';
                else finger = 'P';
           }
-          // En mode manuel, finger reste undefined -> Pas de doigté affiché
           handleNoteAdd(stringId, finger, tick); 
       }
       else if (type === 'TEXT') { setTextInputModal({ visible: true, text: '', targetTick: tick }); }
       setInsertMenu({ ...insertMenu, visible: false });
   };
 
-  // --- VOICE INPUT LOGIC REFACTORED (DIRECT INSERT MODE) ---
-  
   const commitVoiceNote = (stringId: string) => {
-      // Clear buffers
       voiceBufferRef.current = null;
       voicePartialRef.current = null;
       
-      // Auto finger rule: Thumb for 1-3, Index for 4-6
       let finger = 'P';
       if (['4D','5D','6D','4G','5G','6G'].includes(stringId)) finger = 'I';
 
-      // Insert at CURRENT TICK (determined by user click on grid)
-      // Advance 0 ticks to stay on the line as requested: "Click on a line and dictate"
       handleNoteAddRef.current(stringId, finger, currentTickRef.current, 0); 
       
-      setActiveVoiceStringId(stringId); // Visual feedback
+      setActiveVoiceStringId(stringId);
       setTimeout(() => setActiveVoiceStringId(null), 300);
   };
 
@@ -1117,9 +1103,6 @@ export default function App() {
              if (result.isFinal) {
                   let text: string = result[0].transcript.toUpperCase().trim();
                   
-                  // 0. CLEANING / NORMALIZATION (PRE-PROCESSING)
-                  
-                  // Hand "G" - Aggressive
                   text = text.replace(/\bJ\s*['’]?\s*AI\b/gi, " G ");
                   text = text.replace(/\bJ\s*['’]?\s*Y\b/gi, " G ");
                   text = text.replace(/\bJ\s*E\b/gi, " G "); 
@@ -1127,9 +1110,8 @@ export default function App() {
                   text = text.replace(/\bGAI\b/gi, " G ");
                   text = text.replace(/\bGE\b/gi, " G ");
                   text = text.replace(/J\s*['’]?\s*AI/gi, " G ");
-                  text = text.replace(/\bJ[IY]\b/gi, " G "); // Ji, Jy
+                  text = text.replace(/\bJ[IY]\b/gi, " G "); 
 
-                  // Hand "D" - Aggressive
                   text = text.replace(/\bD[EÈ]S\b/gi, " D ");
                   text = text.replace(/\bD\s*['’]?\s*ELLE\b/gi, " D ");
                   text = text.replace(/\bD\s*['’]?\s*AILE\b/gi, " D ");
@@ -1137,58 +1119,45 @@ export default function App() {
                   text = text.replace(/\bD[ÉE]S\b/gi, " D ");
                   text = text.replace(/\bDAY\b/gi, " D ");
 
-                  // Normalize Numbers
                   Object.entries(NUMBER_MAPPING).forEach(([word, digit]) => {
                       text = text.replace(new RegExp(`\\b${word}\\b`, 'g'), digit);
                   });
 
-                  // Clean Spaces within Note IDs (1 G -> 1G)
                   text = text.replace(/([1-6])\s+([GD])/g, "$1$2"); 
                   text = text.replace(/([GD])\s+([1-6])/g, "$2$1"); 
-                  
-                  // Extra whitespace cleanup
                   text = text.replace(/\s+/g, " ");
 
                   setVoiceLog(`"${text}"`);
 
-                  // 1. TOKENIZING
                   const tokens = text.split(" ");
 
                   tokens.forEach((t: string) => {
-                      // 2. Full Note Detection: 1G, 6D... (Already combined by regex)
                       const sMatch = t.match(/^([1-6][GD]|[GD][1-6])$/);
                       if (sMatch) {
                           let cleanId = sMatch[0];
-                          if (cleanId.match(/^[GD][1-6]$/)) { cleanId = cleanId[1] + cleanId[0]; } // Normalize G1 -> 1G
+                          if (cleanId.match(/^[GD][1-6]$/)) { cleanId = cleanId[1] + cleanId[0]; } 
 
                           commitVoiceNote(cleanId);
                           return;
                       }
 
-                      // 3. Partial Input Handling (Combine number + letter if separated)
-                      // Case A: Just Number
                       if (t.match(/^[1-6]$/)) {
-                           if (voicePartialRef.current && voicePartialRef.current.type === 'hand') {
-                               // Combine Partial Hand + New Number -> 1G
+                           if (voicePartialRef.current && voicePartialRef.current.type === 'number') {
                                const hand = voicePartialRef.current.value;
                                const combined = t + hand;
                                commitVoiceNote(combined);
                            } else {
-                               // Store Number, wait for Hand
                                voicePartialRef.current = { value: t, type: 'number' };
                            }
                            return;
                       }
 
-                      // Case B: Just Hand
                       if (t.match(/^[GD]$/)) {
                            if (voicePartialRef.current && voicePartialRef.current.type === 'number') {
-                               // Combine Partial Number + New Hand -> 1G
                                const num = voicePartialRef.current.value;
                                const combined = num + t;
                                commitVoiceNote(combined);
                            } else {
-                               // Store Hand, wait for Number
                                voicePartialRef.current = { value: t, type: 'hand' };
                            }
                            return;
@@ -1207,7 +1176,6 @@ export default function App() {
   };
 
   const toggleVoiceInput = async () => {
-    // FORCE INIT AUDIO (Mobile/Chrome)
     await audioEngine.init();
     if (audioEngine.ctx?.state === 'suspended') {
         try { await audioEngine.ctx.resume(); } catch(e) {}
@@ -1218,7 +1186,6 @@ export default function App() {
     }
 
     if (isVoiceActiveRef.current) {
-        // User explicitly wants to stop
         isVoiceActiveRef.current = false;
         if (recognitionRef.current) {
             try { recognitionRef.current.stop(); } catch(e) {}
@@ -1227,7 +1194,6 @@ export default function App() {
         setIsListening(false);
         setVoiceLog("");
     } else {
-        // User explicitly wants to start
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognition) {
             alert("Votre navigateur ne supporte pas la reconnaissance vocale. (Essayez Chrome/Edge).");
@@ -1242,19 +1208,15 @@ export default function App() {
 
   const handleNoteDrag = (note: ParsedNote, newStringId: string, newTick: number) => {
      if (!note) return;
-     // RESTRICTION: Déjà gérée dans Visualizer, mais double sécurité ici
      if (newTick < TICKS_COUNT_IN) return; 
 
      const allNotes = [...parsedData];
      const index = allNotes.findIndex(n => n.id === note.id);
      
      if (index !== -1) { 
-         // SPECIAL HANDLING: If the dragged note is a TEXT command, ensure it remains TEXT
          if (note.stringId === 'TEXTE') {
-             // For Text, we only update the Tick, ignoring any string change attempt by the Visualizer drag
              allNotes[index] = { ...allNotes[index], tick: newTick };
          } else {
-             // Normal Note Logic
              allNotes[index] = { ...allNotes[index], stringId: newStringId, tick: newTick }; 
          }
      }
@@ -1280,8 +1242,6 @@ export default function App() {
       try {
         const project = JSON.parse(event.target?.result as string);
         if (project.title) setTabTitle(project.title);
-        // TODO: Si on charge un ancien projet sans décompte, on pourrait l'injecter?
-        // Pour l'instant on charge tel quel. Le code contient le décompte si le preset l'avait.
         if (project.code) updateCode(project.code);
         if (project.tuning) { setCurrentTuning(project.tuning); audioEngine.setTuning(project.tuning); }
         if (project.scaleName) setSelectedScaleName(project.scaleName);
@@ -1298,7 +1258,6 @@ export default function App() {
       generatePDF(code, title, selectedScaleName);
   };
 
-  // --- AUDIO EXPORT (MP3 - Offline) ---
   const handleExportAudio = async () => {
       setIsExporting(true);
       isExportingRef.current = true;
@@ -1306,9 +1265,8 @@ export default function App() {
       audioEngine.setBpm(bpm);
       
       try {
-          // Init context to be sure
           audioEngine.init(); 
-          const mp3Blob = await audioEngine.exportMp3(); // Use new MP3 export
+          const mp3Blob = await audioEngine.exportMp3();
           if (mp3Blob) {
               const url = URL.createObjectURL(mp3Blob);
               const a = document.createElement('a');
@@ -1331,11 +1289,9 @@ export default function App() {
       }
   };
 
-  // --- VIDEO EXPORT (WebM/MP4 - Realtime Recording Automated) ---
   const handleExportVideo = () => {
     setMainTab('editor');
     
-    // 1. Wait for tab switch
     setTimeout(async () => {
         if (!visualizerRef.current) {
             alert("Impossible d'initialiser l'enregistrement vidéo.");
@@ -1350,22 +1306,17 @@ export default function App() {
         setCurrentTick(0);
 
         try {
-            // FIX: Ensure AudioContext is running and Samples are loaded BEFORE starting recording
             audioEngine.init();
-            // Force resume if suspended (fixes "no audio on first export" bug)
-            // @ts-ignore - access private ctx for safety check
             if (audioEngine.ctx && audioEngine.ctx.state === 'suspended') {
                  // @ts-ignore
                  await audioEngine.ctx.resume();
             }
             await audioEngine.loadSamples();
 
-            // 2. Prepare Audio (Pre-render for sync)
             audioEngine.setNotes(parsedData);
             audioEngine.setBpm(bpm);
-            audioEngine.setPlaybackSpeed(exportPlaybackSpeed); // Apply slow motion choice
+            audioEngine.setPlaybackSpeed(exportPlaybackSpeed); 
 
-            // This is the heavy lifting - render entire audio first!
             const audioBuffer = await audioEngine.renderProjectToBuffer();
 
             if (!audioBuffer) {
@@ -1376,7 +1327,6 @@ export default function App() {
                  return;
             }
             
-            // 3. Start Logic
             const canvasStream = visualizerRef.current?.getCanvasStream();
             const audioStream = audioEngine.getAudioStream();
             
@@ -1391,23 +1341,17 @@ export default function App() {
             
             const combinedStream = new MediaStream([ ...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks() ]);
             
-            // CONFIGURATION FORMAT based on user selection
             let mimeType = 'video/webm; codecs=vp8';
-            let fileExtension = 'webm';
             
             if (videoFormat === 'mp4') {
                 if (MediaRecorder.isTypeSupported('video/mp4')) {
                     mimeType = 'video/mp4';
-                    fileExtension = 'mp4';
                 } else {
-                     // Fallback to WebM if MP4 is not supported
                      console.warn("MP4 not supported, falling back to WebM");
                      alert("Le format MP4 n'est pas supporté par ce navigateur. Export en WebM.");
                      mimeType = 'video/webm; codecs=vp8';
-                     fileExtension = 'webm';
                 }
             } else {
-                // WebM Logic
                 if (MediaRecorder.isTypeSupported('video/webm; codecs=vp8')) {
                     mimeType = 'video/webm; codecs=vp8';
                 } else {
@@ -1417,8 +1361,6 @@ export default function App() {
             
             recordedMimeTypeRef.current = mimeType;
 
-            // FIX: Increase video bitrate to 8 Mbps to fix pixelation
-            // FIX: Increase audio bitrate to 192kbps to prevent audio artifacts
             const recorder = new MediaRecorder(combinedStream, { 
                 mimeType: mimeType, 
                 videoBitsPerSecond: 8000000,
@@ -1447,19 +1389,13 @@ export default function App() {
                 setIsExporting(false);
                 isExportingRef.current = false;
                 setMainTab('media');
-                
-                // Reset speed to normal playback speed logic if needed, though state persists
             };
             
-            // FIX: Larger chunk size (or none) to reduce stuttering overhead
             recorder.start(); 
             
-            // 4. Play Pre-rendered Buffer (Instead of real-time scheduling)
-            setPlaybackState(PlaybackState.PLAYING); // Update UI
+            setPlaybackState(PlaybackState.PLAYING); 
             
-            // FIX: Wait 500ms to ensure recorder is fully active and buffer is ready
             setTimeout(() => {
-                // MONITOR ON: Play to speakers so user hears the export
                 audioEngine.playPrerendered(audioBuffer, true);
             }, 500);
 
@@ -1472,16 +1408,29 @@ export default function App() {
             setMainTab('media');
         }
             
-    }, 1000); // Wait for tab switch stabilization
+    }, 1000); 
   };
 
   const stopRecording = () => { 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
           mediaRecorderRef.current.stop(); 
       }
-      // Note: playback is stopped via effect when state changes to STOPPED, handled in onEnded
   };
   
+  // MODIF: Utilisation d'une modale React au lieu de window.confirm
+  const handleNewProject = () => {
+      setConfirmNewProjectModal(true);
+  };
+
+  const executeNewProject = () => {
+      setCode(HEADER_SILENCE);
+      setTabTitle("Ma Composition");
+      setSelectedPresetName("");
+      setPlaybackState(PlaybackState.STOPPED);
+      setCurrentTick(TICKS_COUNT_IN);
+      setConfirmNewProjectModal(false);
+  };
+
   const isBeat = isMetronomeOn && playbackState === PlaybackState.PLAYING && (Math.abs(currentTick) % 12 < 2 || Math.abs(currentTick) % 12 > 10);
 
   if (userRole === 'none') {
@@ -1489,10 +1438,37 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col md:flex-row bg-[#e5c4a1] text-[#5d4037] overflow-hidden font-sans" onClick={() => { if(editModal.visible) setEditModal({ ...editModal, visible: false }); if(insertMenu.visible) setInsertMenu({ ...insertMenu, visible: false }); }}>
+    <div className="h-screen w-full flex flex-col md:flex-row bg-transparent text-[#5d4037] overflow-hidden font-sans" onClick={() => { if(editModal.visible) setEditModal({ ...editModal, visible: false }); if(insertMenu.visible) setInsertMenu({ ...insertMenu, visible: false }); }}>
       
-      {/* ... (LEGEND MODAL, SAVE PRESET, SAVE BLOCK, MY BLOCKS - Unchanged) ... */}
-      {/* Keeping previous modal codes implicitly or explicitly if needed, assuming they are part of the file block structure */}
+      {/* MODAL: Confirmation Nouveau Projet */}
+      {confirmNewProjectModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfirmNewProjectModal(false)}>
+            <div className="bg-[#e5c4a1] border-2 border-[#A67C52] rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-center text-[#800020] mb-2">
+                    <ShieldAlert size={48} />
+                </div>
+                <h3 className="font-bold text-xl text-[#5d4037]">Nouveau Projet ?</h3>
+                <p className="text-sm text-[#8d6e63] font-medium">
+                    Attention, vous allez effacer toute votre composition actuelle. Cette action est irréversible.
+                </p>
+                <div className="flex gap-3 justify-center mt-2">
+                    <button 
+                        onClick={() => setConfirmNewProjectModal(false)} 
+                        className="px-4 py-2 text-[#8d6e63] font-bold hover:bg-[#cbb094] rounded border border-[#cbb094]"
+                    >
+                        Annuler
+                    </button>
+                    <button 
+                        onClick={executeNewProject} 
+                        className="px-6 py-2 bg-[#800020] text-white font-bold rounded shadow hover:bg-[#600018] flex items-center gap-2"
+                    >
+                        <Trash2 size={16}/> Tout Effacer
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {legendModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setLegendModalOpen(false)}>
             <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -1502,7 +1478,6 @@ export default function App() {
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-[#e5c4a1] flex flex-col gap-6 text-[#5d4037] text-sm md:text-base">
                     
-                    {/* 1. Menu Latéral */}
                     <div className="bg-[#dcc0a3] p-4 rounded-lg">
                         <h4 className="font-bold border-b border-[#8d6e63]/30 mb-2 flex items-center gap-2 text-[#800020]"><Menu size={16}/> 1. Le Menu Latéral (Gauche)</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1525,7 +1500,6 @@ export default function App() {
                         </div>
                     </div>
 
-                    {/* 2. Onglet Accordage */}
                     <div className="bg-[#dcc0a3] p-4 rounded-lg">
                         <h4 className="font-bold border-b border-[#8d6e63]/30 mb-2 flex items-center gap-2 text-[#800020]"><Settings size={16}/> 2. L'Onglet Accordage</h4>
                         <p className="text-sm mb-2">Configurez votre Ngonilélé avant de commencer à jouer.</p>
@@ -1536,7 +1510,6 @@ export default function App() {
                         </ul>
                     </div>
 
-                    {/* 3. Onglet Éditeur */}
                     <div className="bg-[#dcc0a3] p-4 rounded-lg">
                         <h4 className="font-bold border-b border-[#8d6e63]/30 mb-2 flex items-center gap-2 text-[#800020]"><Edit3 size={16}/> 3. L'Onglet Éditeur (Principal)</h4>
                         
@@ -1562,7 +1535,6 @@ export default function App() {
                         </div>
                     </div>
 
-                    {/* 4. Générer Médias */}
                     <div className="bg-[#dcc0a3] p-4 rounded-lg">
                         <h4 className="font-bold border-b border-[#8d6e63]/30 mb-2 flex items-center gap-2 text-[#800020]"><FileDown size={16}/> 4. L'Onglet Générer Médias</h4>
                         <ul className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
@@ -1586,149 +1558,164 @@ export default function App() {
         </div>
       )}
 
-      {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setIsSidebarOpen(false)}></div>
       )}
 
-      {/* SIDEBAR */}
       <aside className={`
-        fixed md:static inset-y-0 left-0 z-50 bg-[#dcc0a3] border-r border-[#cbb094] flex flex-col transition-all duration-300 ease-in-out shadow-xl md:shadow-none
+        fixed md:static inset-y-0 left-0 z-50 border-r border-[#cbb094] flex flex-col transition-all duration-300 ease-in-out shadow-xl md:shadow-none backdrop-blur-sm relative overflow-hidden
         ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
         ${isDesktopSidebarOpen ? 'md:w-72' : 'md:w-0 md:opacity-0 md:overflow-hidden'}
       `}>
-        {/* HEADER SIDEBAR */}
-        <div className="p-4 border-b border-[#cbb094] flex flex-col gap-4 bg-[#e5c4a1]/50">
-           <div className="flex items-center gap-3">
-              <div className="w-[72px] h-[72px] flex items-center justify-center shrink-0">
-                  <img 
-                    src="https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/logo_mandala.png" 
-                    alt="Logo Ngonilélé" 
-                    className="w-full h-full object-contain animate-in fade-in zoom-in"
-                  />
-              </div>
-              <div>
-                  <h1 className="font-serif font-bold text-lg leading-none text-[#5d4037]">Ngonilélé</h1>
-                  <span className="text-[10px] uppercase font-bold text-[#8d6e63] tracking-widest">Tablatures</span>
-              </div>
-           </div>
-           
-           {/* TABS */}
-           <div className="flex bg-[#e5c4a1] p-1 rounded-lg border border-[#cbb094]">
-               <button onClick={() => setBankTab('song')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'song' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
-                   <Music size={12}/> Morceaux
-               </button>
-               <button onClick={() => setBankTab('exercise')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'exercise' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
-                   <Activity size={12}/> Exercices
-               </button>
-               <button onClick={() => setBankTab('user')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'user' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
-                   <User size={12}/> Mes Tabs
-               </button>
-           </div>
-        </div>
+        {/* Background Layers */}
+        <div className="absolute inset-0 bg-[#dcc0a3]/90 z-0" />
+        <div 
+            className="absolute inset-0 z-0 opacity-15 mix-blend-multiply pointer-events-none"
+            style={{
+                backgroundImage: `url('${MENU_BG_URL}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+            }}
+        />
 
-        {/* LIST */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-            <h3 className="text-xs font-black text-[#8d6e63] uppercase tracking-wider mb-2 px-2 mt-2 flex justify-between items-center">
-                <span>{bankTab === 'song' ? 'Chansons' : bankTab === 'exercise' ? 'Exercices' : 'Mes Créations'}</span>
-                <span className="bg-[#cbb094] text-[#5d4037] px-1.5 py-0.5 rounded text-[10px]">{filteredPresets.length}</span>
-            </h3>
-            
-            <div className="flex flex-col gap-1">
-                {filteredPresets.map((preset) => (
-                    <button 
-                        key={preset.name}
-                        onClick={() => { setSelectedPresetName(preset.name); handleLoadSelectedPreset(); }} 
-                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all border border-transparent group relative
-                           ${selectedPresetName === preset.name 
-                               ? 'bg-[#e5c4a1] border-[#cbb094] shadow-sm' 
-                               : 'hover:bg-[#e5c4a1]/50 hover:border-[#cbb094]/30'}
-                        `}
-                    >
-                        <div className="flex items-center justify-between">
-                             <span className={`text-xs font-bold ${selectedPresetName === preset.name ? 'text-[#5d4037]' : 'text-[#8d6e63] group-hover:text-[#5d4037]'}`}>
-                                 {preset.name}
-                             </span>
-                             {/* Icons for User Presets */}
-                             {bankTab === 'user' && selectedPresetName === preset.name && (
-                                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                     <button onClick={handleShareUserPreset} className="p-1 hover:bg-[#dcc0a3] rounded text-[#8d6e63] hover:text-[#5d4037]" title="Partager par mail"><Mail size={12}/></button>
-                                     {userRole === 'admin' && <button onClick={handleDeleteUserPreset} className="p-1 hover:bg-red-100 rounded text-[#8d6e63] hover:text-red-500" title="Supprimer"><Trash2 size={12}/></button>}
-                                 </div>
-                             )}
-                        </div>
-                    </button>
-                ))}
-                
-                {filteredPresets.length === 0 && (
-                    <div className="text-center py-8 text-xs text-[#8d6e63] italic opacity-70">
-                        Aucun élément trouvé.
-                    </div>
-                )}
+        {/* Content Wrapper */}
+        <div className="flex flex-col h-full w-full relative z-10">
+            <div className="p-4 flex flex-col gap-4">
+            <div className="flex flex-col items-center gap-2 text-center">
+                <div className="w-[108px] h-[108px] flex items-center justify-center shrink-0">
+                    <img 
+                        src="https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/logo_mandala.png" 
+                        alt="Logo Ngonilélé" 
+                        className="w-full h-full object-contain animate-in fade-in zoom-in transition-transform duration-300 hover:scale-110 active:scale-125 cursor-pointer mix-blend-multiply"
+                    />
+                </div>
+                <div>
+                    <h1 className="font-serif font-bold text-2xl leading-none text-[#800020] break-words">Ngonilélé</h1>
+                    <span className="text-sm uppercase font-bold text-[#8d6e63] tracking-widest">Tablatures</span>
+                </div>
             </div>
-        </div>
-        
-        {/* FOOTER - NOUVELLE STRUCTURE */}
-        <div className="p-4 border-t border-[#cbb094] bg-[#e5c4a1]/30 flex flex-col gap-3">
-             {/* Contribuer */}
-             <div className="flex flex-col gap-1">
-                 <h4 className="text-[10px] font-black uppercase tracking-wider text-[#8d6e63] mb-1">Contribuer</h4>
-                 <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Morceau%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
-                     <Music size={14}/>
-                     <span>Proposer un morceau</span>
-                 </a>
-                 <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Gamme%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
-                     <Settings size={14}/>
-                     <span>Proposer une gamme</span>
-                 </a>
-             </div>
-             
-             <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+            
+            <div className="flex gap-1 w-full">
+                <button onClick={() => setBankTab('song')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'song' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                    <Music size={12}/> Morceaux
+                </button>
+                <button onClick={() => setBankTab('exercise')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'exercise' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                    <Activity size={12}/> Exercices
+                </button>
+                <button onClick={() => setBankTab('user')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'user' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                    <User size={12}/> Mes Tabs
+                </button>
+            </div>
+            </div>
 
-             {/* Assistance */}
-             <div className="flex flex-col gap-1">
-                 <a href="mailto:julienflorin59@gmail.com?subject=Bug%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#800020] hover:text-red-600 transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
-                     <Bug size={14}/>
-                     <span>Reporter un bug</span>
-                 </a>
-                 <button onClick={() => setLegendModalOpen(true)} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
-                     <LifeBuoy size={14}/>
-                     <span>Guide d'utilisation</span>
-                 </button>
-             </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                <h3 className="text-xs font-black text-[#8d6e63] uppercase tracking-wider mb-2 px-2 mt-2 flex justify-between items-center">
+                    <span>{bankTab === 'song' ? 'Chansons' : bankTab === 'exercise' ? 'Exercices' : 'Mes Créations'}</span>
+                    <span className="bg-[#cbb094] text-[#5d4037] px-1.5 py-0.5 rounded text-[10px]">{filteredPresets.length}</span>
+                </h3>
+                
+                <div className="flex flex-col gap-1">
+                    {filteredPresets.map((preset) => (
+                        <button 
+                            key={preset.name}
+                            onClick={() => { setSelectedPresetName(preset.name); handleLoadSelectedPreset(); }} 
+                            className={`w-full text-left px-3 py-2.5 rounded-lg transition-all border border-transparent group relative
+                            ${selectedPresetName === preset.name 
+                                ? 'bg-[#e5c4a1] border-[#cbb094] shadow-sm' 
+                                : 'hover:bg-[#e5c4a1]/50 hover:border-[#cbb094]/30'}
+                            `}
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className={`text-xs font-bold ${selectedPresetName === preset.name ? 'text-[#5d4037]' : 'text-[#8d6e63] group-hover:text-[#5d4037]'}`}>
+                                    {preset.name}
+                                </span>
+                                {bankTab === 'user' && selectedPresetName === preset.name && (
+                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <button onClick={handleShareUserPreset} className="p-1 hover:bg-[#dcc0a3] rounded text-[#8d6e63] hover:text-[#5d4037]" title="Partager par mail"><Mail size={12}/></button>
+                                        {userRole === 'admin' && <button onClick={handleDeleteUserPreset} className="p-1 hover:bg-red-100 rounded text-[#8d6e63] hover:text-red-500" title="Supprimer"><Trash2 size={12}/></button>}
+                                    </div>
+                                )}
+                            </div>
+                        </button>
+                    ))}
+                    
+                    {filteredPresets.length === 0 && (
+                        <div className="text-center py-8 text-xs text-[#8d6e63] italic opacity-70">
+                            Aucun élément trouvé.
+                        </div>
+                    )}
+                </div>
+            </div>
+            
+            <div className="p-4 border-t border-[#cbb094] bg-[#e5c4a1]/30 flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-[#8d6e63] mb-1">Contribuer</h4>
+                    <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Morceau%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <Music size={14}/>
+                        <span>Proposer un morceau</span>
+                    </a>
+                    <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Gamme%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <Settings size={14}/>
+                        <span>Proposer une gamme</span>
+                    </a>
+                    <button onClick={handleShareCurrentProject} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
+                        <Send size={14}/>
+                        <span>Envoyer ma tablature</span>
+                    </button>
+                </div>
+                
+                <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
 
-             <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+                <div className="flex flex-col gap-1">
+                    <a href="mailto:julienflorin59@gmail.com?subject=Bug%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#800020] hover:text-red-600 transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <Bug size={14}/>
+                        <span>Reporter un bug</span>
+                    </a>
+                    <button onClick={() => setLegendModalOpen(true)} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
+                        <LifeBuoy size={14}/>
+                        <span>Guide d'utilisation</span>
+                    </button>
+                    <a href="https://github.com/julienflorin59-ux/Generateur-tablature-Ngonilele/blob/main/Livret_Ngonil%C3%A9l%C3%A9.pdf" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <BookOpen size={14}/>
+                        <span>Télécharger le Livret Ngonilélé</span>
+                    </a>
+                </div>
 
-             {/* Credits */}
-             <div className="text-[10px] text-center text-[#8d6e63] leading-tight">
-                 <div className="font-bold">Développé par Julien Florin</div>
-                 <a href="mailto:julienflorin59@gmail.com" className="hover:underline opacity-80 hover:opacity-100">julienflorin59@gmail.com</a>
-                 <div className="opacity-50 mt-1">v1.3.1</div>
-             </div>
+                <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+
+                <div className="text-[10px] text-center text-[#8d6e63] leading-tight">
+                    <div className="font-bold">Développé par Julien Florin</div>
+                    <a href="mailto:julienflorin59@gmail.com" className="hover:underline opacity-80 hover:opacity-100">julienflorin59@gmail.com</a>
+                    <div className="opacity-50 mt-1">v1.3.1</div>
+                </div>
+            </div>
         </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full bg-transparent">
           
-          <header className="pt-4 px-4 md:pt-8 md:px-10 pb-2 bg-[#e5c4a1] flex-none">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 mb-4">
-                 <button onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} className="hidden md:flex items-center justify-center p-2 bg-[#dcc0a3] hover:bg-[#cbb094] rounded-full text-[#5d4037] shadow-sm border border-[#cbb094] transition-all">{isDesktopSidebarOpen ? <ChevronsLeft size={24}/> : <Menu size={24}/>}</button>
-                 {/* Title Removed from here */}
-                 {/* HIDDEN: Open/Save Buttons removed here */}
+          <DynamicBackground activeTab={mainTab} />
+
+          <header className="pt-2 px-2 md:pt-8 md:px-10 pb-1 bg-transparent flex-none relative z-10">
+              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 mb-2 md:mb-4">
+                 <button onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} className="flex items-center justify-center p-2 bg-[#dcc0a3] hover:bg-[#cbb094] rounded-full text-[#5d4037] shadow-sm border border-[#cbb094] transition-all" aria-label="Menu Principal">
+                    {isDesktopSidebarOpen ? <ChevronsLeft size={24}/> : <Menu size={24}/>}
+                 </button>
                  <input type="file" accept=".json" ref={loadProjectInputRef} onChange={handleLoadProject} className="hidden" />
               </div>
 
-              <nav className="flex justify-center gap-2 md:gap-4 overflow-x-auto scrollbar-hide pb-2">
-                  <button onClick={() => setMainTab('tuning')} className={`whitespace-nowrap px-4 py-2 flex items-center gap-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'tuning' ? 'bg-[#8d6e63] text-[#e5c4a1] shadow-md' : 'bg-[#e5c4a1]/50 text-[#8d6e63] hover:bg-[#dcc0a3]'}`}><Settings size={16} /> Accordage</button>
-                  <button onClick={() => setMainTab('editor')} className={`whitespace-nowrap px-4 py-2 flex items-center gap-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'editor' ? 'bg-[#8d6e63] text-[#e5c4a1] shadow-md' : 'bg-[#e5c4a1]/50 text-[#8d6e63] hover:bg-[#dcc0a3]'}`}><Edit3 size={16} /> Éditeur</button>
-                  <button onClick={() => setMainTab('media')} className={`whitespace-nowrap px-4 py-2 flex items-center gap-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'media' ? 'bg-[#8d6e63] text-[#e5c4a1] shadow-md' : 'bg-[#e5c4a1]/50 text-[#8d6e63] hover:bg-[#dcc0a3]'}`}><FileDown size={16} /> Générer Médias</button>
+              {/* Desktop Navigation Tabs (Hidden on Mobile) */}
+              <nav className="hidden md:flex justify-center gap-2 md:gap-4 overflow-x-auto scrollbar-hide pb-2">
+                  <button onClick={() => setMainTab('tuning')} className={`whitespace-nowrap px-4 py-2 flex items-center gap-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'tuning' ? 'bg-[#8d6e63] text-[#e5c4a1] shadow-md' : 'bg-[#e5c4a1]/50 text-[#8d6e63] hover:bg-[#dcc0a3] backdrop-blur-sm'}`}><Settings size={16} /> Accordage</button>
+                  <button onClick={() => setMainTab('editor')} className={`whitespace-nowrap px-4 py-2 flex items-center gap-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'editor' ? 'bg-[#8d6e63] text-[#e5c4a1] shadow-md' : 'bg-[#e5c4a1]/50 text-[#8d6e63] hover:bg-[#dcc0a3] backdrop-blur-sm'}`}><Edit3 size={16} /> Éditeur</button>
+                  <button onClick={() => setMainTab('media')} className={`whitespace-nowrap px-4 py-2 flex items-center gap-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'media' ? 'bg-[#8d6e63] text-[#e5c4a1] shadow-md' : 'bg-[#e5c4a1]/50 text-[#8d6e63] hover:bg-[#dcc0a3] backdrop-blur-sm'}`}><FileDown size={16} /> Générer Médias</button>
               </nav>
           </header>
 
-          <div className="flex-1 bg-[#e5c4a1] border-t border-[#cbb094] p-1 md:p-2 overflow-y-auto scrollbar-hide flex flex-col min-h-0 relative">
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 bg-transparent border-t border-[#cbb094]/50 p-1 md:p-2 overflow-y-auto scrollbar-hide flex flex-col min-h-0 relative z-10 pb-20 md:pb-2">
               
-              {/* INSERT TEXT & MENU MODALS */}
               {textInputModal.visible && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
                   <div className="bg-[#e5c4a1] border-2 border-[#A67C52] rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4">
@@ -1791,31 +1778,33 @@ export default function App() {
 
               {mainTab === 'tuning' && (
                   <div className="h-full overflow-y-auto scrollbar-hide animate-in fade-in duration-300 pb-2 pt-1 flex flex-col items-center">
-                      <h2 className="text-lg md:text-xl font-bold mb-1">Gamme & Accordage</h2>
-                      <div className="mb-1 w-full max-w-xl">
-                          <label className="text-xs text-[#8d6e63] mb-0.5 block font-bold">Sélectionner la gamme :</label>
-                          <div className="relative inline-block w-full">
-                            <select className="w-full p-1.5 bg-[#d0b090] border-2 border-[#cbb094] rounded shadow-inner font-black text-[#5d4037] appearance-none outline-none focus:ring-4 focus:ring-[#A67C52] text-xs md:text-sm" value={selectedScaleName} onChange={handleScaleChange}>
-                                <option value="Personnalisée" className="bg-[#e5c4a1]">-- Personnalisée --</option>
-                                {SCALES_PRESETS.map(s => <option key={s.name} value={s.name} className="bg-[#e5c4a1]">{s.name}</option>)}
-                            </select>
-                            <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-[#5d4037]"><ChevronDown size={24} /></div>
+                      <div className="bg-[#dcc0a3]/60 p-4 rounded-xl backdrop-blur-sm shadow-sm w-full max-w-3xl flex flex-col items-center gap-2 border border-[#cbb094]">
+                          <h2 className="text-lg md:text-xl font-bold mb-1">Gamme & Accordage</h2>
+                          <div className="mb-1 w-full max-w-xl">
+                              <label className="text-xs text-[#8d6e63] mb-0.5 block font-bold text-center">Sélectionner la gamme :</label>
+                              <div className="relative inline-block w-full">
+                                <select className="w-full p-1.5 bg-[#d0b090]/80 border-2 border-[#cbb094] rounded shadow-inner font-black text-[#5d4037] appearance-none outline-none focus:ring-4 focus:ring-[#A67C52] text-xs md:text-sm text-center" value={selectedScaleName} onChange={handleScaleChange}>
+                                    <option value="Personnalisée" className="bg-[#e5c4a1]">-- Personnalisée --</option>
+                                    {SCALES_PRESETS.map(s => <option key={s.name} value={s.name} className="bg-[#e5c4a1]">{s.name}</option>)}
+                                </select>
+                                <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-[#5d4037]"><ChevronDown size={24} /></div>
+                              </div>
+                          </div>
+                          <div className="mt-1 w-full max-w-xl">
+                              <h3 className="font-bold text-sm mb-0.5 text-center text-[#8d6e63]">Code Couleur</h3>
+                              <div className="flex flex-wrap justify-center gap-3 items-center px-1">
+                                  {Object.entries(NOTE_COLORS).map(([note, color]) => (
+                                      <div key={note} className="group flex flex-col items-center justify-center cursor-default">
+                                          <div className="w-5 h-5 md:w-6 md:h-6 rounded-full relative transition-transform transform group-hover:scale-110 duration-300 shadow-md" style={{ backgroundColor: color, boxShadow: `0 2px 4px ${color}80, inset 0 2px 3px rgba(255,255,255,0.4)` }}></div>
+                                          <span className="font-bold text-[10px] mt-0.5 text-[#5d4037]">{note}</span>
+                                      </div>
+                                  ))}
+                              </div>
                           </div>
                       </div>
-                      <div className="mt-1 w-full max-w-xl">
-                          <h3 className="font-bold text-sm mb-0.5 text-center text-[#8d6e63]">Code Couleur</h3>
-                          <div className="flex flex-wrap justify-center gap-3 items-center px-1">
-                              {Object.entries(NOTE_COLORS).map(([note, color]) => (
-                                  <div key={note} className="group flex flex-col items-center justify-center cursor-default">
-                                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-full relative transition-transform transform group-hover:scale-110 duration-300 shadow-md" style={{ backgroundColor: color, boxShadow: `0 2px 4px ${color}80, inset 0 2px 3px rgba(255,255,255,0.4)` }}></div>
-                                      <span className="font-bold text-[10px] mt-0.5 text-[#5d4037]">{note}</span>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                      <div className="border-t border-[#cbb094] pt-1 mt-1 mb-1 w-full max-w-3xl">
-                         <h3 className="font-black text-sm mb-1 flex items-center gap-2 justify-center text-[#5d4037]"><Plus size={14} /> Personnaliser l'accordage</h3>
-                         <div className="bg-[#dcc0a3]/40 p-3 rounded-xl border-2 border-[#cbb094] shadow-sm">
+                      <div className="border-t border-[#cbb094]/50 pt-1 mt-1 mb-1 w-full max-w-3xl">
+                         <h3 className="font-black text-sm mb-1 flex items-center gap-2 justify-center text-[#5d4037] mt-2"><Plus size={14} /> Personnaliser l'accordage</h3>
+                         <div className="bg-[#dcc0a3]/60 p-3 rounded-xl border-2 border-[#cbb094] shadow-sm backdrop-blur-sm">
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="font-black mb-1 text-[#5d4037] border-b-2 border-[#5d4037]/20 pb-0.5 text-xs md:text-sm text-center">Main Gauche (G)</h4>
@@ -1832,24 +1821,23 @@ export default function App() {
               )}
 
               {mainTab === 'editor' && (
-                  <div className="flex w-full border border-[#cbb094] rounded-lg shadow-sm animate-in fade-in duration-300 h-full flex-col">
-                       {/* EDITOR TOOLBAR CONTAINER - COMPACT (Gap-1, P-1) */}
-                       <div className="bg-[#dcc0a3] border-b border-[#cbb094] flex flex-col gap-1 p-1 z-20 shadow-sm flex-none h-auto">
+                  <div className="flex w-full border border-[#cbb094]/50 rounded-lg shadow-sm animate-in fade-in duration-300 h-full flex-col bg-transparent">
+                       <div className="bg-[#dcc0a3]/60 border-b border-[#cbb094] flex flex-col gap-1 p-1 z-20 shadow-sm flex-none h-auto backdrop-blur-sm">
                             
-                            {/* Row 1: Title and Main Actions - COMPACT GAP */}
                             <div className="flex flex-col md:flex-row items-center justify-center gap-2 w-full relative mb-0.5">
-                                {/* Title Input - Reduced Font Size */}
-                                <div className="flex items-center justify-center">
+                                <div className="flex items-center justify-center gap-2">
                                     <input
                                         type="text"
                                         value={tabTitle}
                                         onChange={(e) => setTabTitle(e.target.value)}
-                                        className="bg-transparent text-lg md:text-2xl font-serif font-normal text-[#5d4037] placeholder-[#8d6e63] outline-none border-b-2 border-transparent hover:border-[#8d6e63] focus:border-[#8d6e63] pb-0 text-center w-full min-w-[200px]"
+                                        className="bg-transparent text-base md:text-2xl font-serif font-normal text-[#5d4037] placeholder-[#8d6e63] outline-none border-b-2 border-transparent hover:border-[#8d6e63] focus:border-[#8d6e63] pb-0 text-center w-full min-w-[150px]"
                                         placeholder="Ma Composition"
                                     />
+                                    <button onClick={handleNewProject} className="p-1.5 bg-[#e5c4a1] hover:bg-[#cbb094] rounded text-[#8d6e63] hover:text-[#5d4037] transition-colors border border-[#cbb094]" title="Nouveau / Tout effacer">
+                                        <FilePlus size={16} />
+                                    </button>
                                 </div>
 
-                                {/* Right Actions - COMPACT */}
                                 <div className="flex gap-2">
                                      <button onClick={() => { setSaveName(tabTitle); setSaveModalOpen(true); }} className={`flex items-center gap-1 px-3 py-0.5 bg-[#8d6e63] text-[#e5c4a1] rounded shadow-md hover:bg-[#6d4c41] transition-colors font-bold text-xs ${userRole !== 'admin' ? 'opacity-80' : ''}`}>
                                          <Save size={14} /> Enregistrer ma tablature
@@ -1860,14 +1848,11 @@ export default function App() {
                                 </div>
                             </div>
 
-                            {/* Row 2: Controls - CENTERED & EQUAL HEIGHT (h-7) */}
-                            <div className="flex flex-wrap items-center justify-center gap-2 w-full">
-                                {/* Légende */}
+                            <div className="flex flex-wrap items-center justify-center gap-1 md:gap-2 w-full">
                                 <button onClick={() => setLegendModalOpen(true)} className="px-2 h-7 bg-[#8d6e63] text-white rounded shadow hover:bg-[#6d4c41] transition-colors font-medium text-xs flex items-center gap-1 mr-1">
                                     <Info size={12} /> Légende
                                 </button>
 
-                                {/* Playback Group - Height 7 */}
                                 <div className="flex items-center gap-0 bg-[#e5c4a1] rounded border border-[#cbb094] shadow-sm h-7 overflow-hidden">
                                     <button onClick={rewindPlayback} className="h-full px-2 hover:bg-[#cbb094] text-[#5d4037] transition-colors flex items-center justify-center border-r border-[#cbb094]" title="Début"><SkipBack size={14} /></button>
                                     {playbackState === PlaybackState.PLAYING ? (
@@ -1876,7 +1861,6 @@ export default function App() {
                                          <button onClick={startPlayback} className="h-full px-2 hover:bg-[#cbb094] text-[#5d4037] transition-colors flex items-center justify-center border-r border-[#cbb094]"><Play size={16} /></button>
                                     )}
                                     
-                                    {/* Speed */}
                                     <div className="flex items-center gap-1 px-2 h-full border-r border-[#cbb094]" data-tooltip="Vitesse">
                                         <Gauge size={12} className="text-[#8d6e63]" />
                                         <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))} className="bg-transparent font-bold text-[#5d4037] outline-none text-xs cursor-pointer h-full py-0">
@@ -1887,7 +1871,6 @@ export default function App() {
                                         </select>
                                     </div>
 
-                                     {/* Tempo */}
                                      <div className="flex items-center gap-1 px-2 h-full border-r border-[#cbb094]">
                                          <Activity size={12} className="text-[#8d6e63]" />
                                          <span className="font-bold text-[#5d4037] text-xs w-8 text-center">{bpm}</span>
@@ -1896,30 +1879,26 @@ export default function App() {
                                               <button onClick={() => setBpm(Math.max(40, bpm - 5))} className="hover:text-[#800020] leading-none"><ChevronDown size={8}/></button>
                                           </div>
                                      </div>
-                                     {/* Metronome Toggle */}
                                      <button onClick={() => setIsMetronomeOn(!isMetronomeOn)} className={`h-full px-2 transition-colors flex items-center justify-center ${isMetronomeOn ? 'bg-[#8d6e63] text-white' : 'text-[#5d4037] hover:bg-[#cbb094]'}`}>
                                         <Timer size={14} className={isBeat ? 'animate-pulse' : ''} />
                                      </button>
                                 </div>
 
-                                {/* Rhythm Toggle */}
                                 <div className="flex items-center bg-[#8d6e63] rounded overflow-hidden shadow-sm text-xs font-medium border border-[#8d6e63] h-7 ml-1">
                                     <button onClick={() => setRhythmMode('binary')} className={`h-full px-2 transition-colors ${rhythmMode === 'binary' ? 'bg-[#8d6e63] text-[#e5c4a1]' : 'bg-[#e5c4a1] text-[#5d4037] hover:bg-[#dcc0a3]'}`}>4/4</button>
                                     <div className="w-[1px] h-full bg-[#e5c4a1]/30"></div>
                                     <button onClick={() => setRhythmMode('ternary')} className={`h-full px-2 transition-colors ${rhythmMode === 'ternary' ? 'bg-[#8d6e63] text-[#e5c4a1]' : 'bg-[#e5c4a1] text-[#5d4037] hover:bg-[#dcc0a3]'}`}>3/4</button>
                                 </div>
 
-                                {/* Mode Doigté */}
                                 <button 
                                     onClick={() => setFingeringMode(fingeringMode === 'auto' ? 'manual' : 'auto')}
                                     className={`flex items-center gap-1 px-2 h-7 rounded shadow border transition-colors font-medium text-xs ml-1 ${fingeringMode === 'auto' ? 'bg-[#8d6e63] text-[#e5c4a1] border-[#8d6e63] hover:bg-[#6d4c41]' : 'bg-[#e5c4a1] text-[#5d4037] border-[#cbb094] hover:bg-[#dcc0a3]'}`}
                                     data-tooltip={`Mode Auto :\n3 1ères cordes = Pouce\n3 dernières cordes = Index\n\nMode Manuel :\nClic Gauche = Pouce\nClic Droit = Index`}
                                 >
                                     {fingeringMode === 'auto' ? <Wand2 size={12} /> : <Hand size={12} />}
-                                    <span>Mode Doigté</span>
+                                    <span className="hidden md:inline">Mode Doigté</span>
                                 </button>
 
-                                {/* Voice Input */}
                                 <button 
                                     onClick={toggleVoiceInput}
                                     className={`flex items-center gap-1 px-2 h-7 rounded shadow border transition-colors font-medium text-xs ${isListening ? 'bg-red-600 text-white border-red-600' : 'bg-[#e5c4a1] text-[#5d4037] border-[#cbb094] hover:bg-[#cbb094]'}`}
@@ -1928,7 +1907,6 @@ export default function App() {
                                     {isListening ? (
                                         <>
                                             <Square size={12} />
-                                            {/* Visual Waveform */}
                                             <div className="flex items-center gap-[2px] h-3 px-1">
                                                 <div className="w-[2px] bg-white h-2 animate-[pulse_0.6s_ease-in-out_infinite]"></div>
                                                 <div className="w-[2px] bg-white h-3 animate-[pulse_0.4s_ease-in-out_infinite]"></div>
@@ -1940,13 +1918,12 @@ export default function App() {
                                     ) : (
                                         <>
                                             <Mic size={12} />
-                                            <span>Saisie Vocale</span>
+                                            <span className="hidden md:inline">Saisie Vocale</span>
                                         </>
                                     )}
                                 </button>
                                 {isListening && <div className="hidden">Log: {voiceLog}</div>}
 
-                                {/* MIDI Input */}
                                 <button
                                     onClick={async () => {
                                         await audioEngine.init();
@@ -1956,15 +1933,13 @@ export default function App() {
                                     className={`flex items-center gap-1 px-2 h-7 rounded shadow border transition-colors font-medium text-xs ${isMidiEnabled ? 'bg-[#8d6e63] text-[#e5c4a1] border-[#8d6e63]' : 'bg-[#e5c4a1] text-[#5d4037] border-[#cbb094] hover:bg-[#cbb094]'}`}
                                 >
                                     <Piano size={12} />
-                                    <span>MIDI</span>
+                                    <span className="hidden md:inline">MIDI</span>
                                 </button>
                             </div>
                        </div>
                        
-                       {/* Full Width Visualizer Container */}
-                       <div className="flex-1 flex flex-col bg-[#e5c4a1] relative min-h-0">
-                           {/* StringPad at the TOP - REMOVED PADDING TO TOUCH STRINGS */}
-                           <div className="flex-none bg-[#dcc0a3] z-10 shadow-sm relative pt-1 px-0 pb-0">
+                       <div className="flex-1 flex flex-col bg-transparent relative min-h-0">
+                           <div className="flex-none bg-[#dcc0a3]/60 z-10 shadow-sm relative pt-1 px-0 pb-0 backdrop-blur-sm">
                                 <StringPad 
                                     onInsert={(stringId, finger, advanceTicks) => handleNoteAdd(stringId, finger, undefined, advanceTicks)}
                                     tuning={currentTuning}
@@ -1974,9 +1949,7 @@ export default function App() {
                                 />
                            </div>
 
-                           {/* Visualizer Below */}
                            <div className="flex-1 relative min-h-0">
-                                {/* Countdown Removed */}
                                 <Visualizer 
                                     ref={visualizerRef}
                                     data={activeData}
@@ -2004,13 +1977,16 @@ export default function App() {
               {mainTab === 'media' && (
                   <div className="flex flex-col items-center justify-center h-full gap-8 animate-in fade-in duration-300 p-8 text-center">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
-                            <div className="bg-[#dcc0a3] p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform">
+                            {/* PDF CARD */}
+                            <div className="bg-[#dcc0a3]/80 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-sm">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><FileText size={32}/></div>
                                 <h3 className="font-bold text-lg">Partition PDF</h3>
                                 <p className="text-sm opacity-80">Format A4 imprimable avec diagrammes et annotations.</p>
                                 <button onClick={handleDownloadPDF} className="mt-auto px-6 py-2 bg-[#8d6e63] text-white font-bold rounded shadow hover:bg-[#6d4c41] flex items-center gap-2"><Download size={16}/> Télécharger PDF</button>
                             </div>
-                            <div className="bg-[#dcc0a3] p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform">
+                            
+                            {/* AUDIO CARD */}
+                            <div className="bg-[#dcc0a3]/80 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-sm">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><Headphones size={32}/></div>
                                 <h3 className="font-bold text-lg">Export Audio</h3>
                                 <p className="text-sm opacity-80">Fichier MP3 haute qualité (320kbps).</p>
@@ -2019,7 +1995,9 @@ export default function App() {
                                     <span>Télécharger MP3</span>
                                 </button>
                             </div>
-                            <div className="bg-[#dcc0a3] p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform">
+
+                            {/* VIDEO CARD */}
+                            <div className="bg-[#dcc0a3]/80 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-sm">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><Video size={32}/></div>
                                 <h3 className="font-bold text-lg">Export Vidéo</h3>
                                 <p className="text-sm opacity-80">Vidéo défilante (Format WebM).</p>
@@ -2044,6 +2022,23 @@ export default function App() {
               )}
 
           </div>
+
+          {/* MOBILE BOTTOM NAVIGATION BAR */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#dcc0a3] border-t border-[#cbb094] flex justify-around p-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+               <button onClick={() => setMainTab('tuning')} className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mainTab === 'tuning' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#5d4037] hover:bg-[#cbb094]/50'}`}>
+                   <Settings size={20} />
+                   <span className="text-[10px] font-bold">Accordage</span>
+               </button>
+               <button onClick={() => setMainTab('editor')} className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mainTab === 'editor' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#5d4037] hover:bg-[#cbb094]/50'}`}>
+                   <Edit3 size={20} />
+                   <span className="text-[10px] font-bold">Éditeur</span>
+               </button>
+               <button onClick={() => setMainTab('media')} className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mainTab === 'media' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#5d4037] hover:bg-[#cbb094]/50'}`}>
+                   <FileDown size={20} />
+                   <span className="text-[10px] font-bold">Médias</span>
+               </button>
+          </div>
+
       </main>
     </div>
   );

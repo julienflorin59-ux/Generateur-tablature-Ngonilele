@@ -1,20 +1,86 @@
+
 <!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Ngonilélé Tab Generator</title>
     <!-- On garde Tailwind en CDN pour simplifier la configuration pour l'utilisateur, 
          bien qu'en production "pure" on l'installerait via npm. 
          Cela fonctionne très bien avec Vite. -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #e5c4a1;
-        color: #5d4037;
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Outfit', 'sans-serif'],
+            }
+          }
+        }
       }
+    </script>
+    
+    <!-- PRELOAD CRITIQUE : Image de fond du menu pour affichage immédiat -->
+    <link rel="preload" as="image" href="https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandalamenu.png">
+
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+      
+      :root {
+        --paper-color: #e5c4a1;
+      }
+
+      body {
+        font-family: 'Outfit', sans-serif;
+        background-color: var(--paper-color);
+        color: #5d4037;
+        position: relative;
+        /* Mobile viewport fix: use dvh (dynamic viewport height) if supported, fallback to vh */
+        height: 100vh;
+        height: 100dvh;
+        width: 100vw;
+        overflow: hidden; /* Prevent scrollbars from the body itself */
+      }
+      
+      /* 1. Texture Papier Froissé (Généré par SVG Filter) */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0; 
+        opacity: 0.4; /* Opacité modérée pour bien voir le beige en dessous */
+        filter: url('#paper-crumple'); 
+        /* 'multiply' va incruster les ombres du papier dans le beige sans le blanchir */
+        mix-blend-mode: multiply; 
+      }
+
+      /* 2. Vignettage subtil pour l'effet vieilli (coins sombres) */
+      body::after {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        background: radial-gradient(circle, transparent 50%, rgba(93, 64, 55, 0.1) 90%, rgba(93, 64, 55, 0.3) 100%);
+        mix-blend-mode: multiply;
+      }
+      
+      /* Ensure root content sits above the backgrounds */
+      #root {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+        width: 100%;
+      }
+
       .font-mono {
         font-family: 'JetBrains Mono', monospace;
       }
@@ -28,7 +94,7 @@
         height: 8px;
       }
       .custom-scrollbar::-webkit-scrollbar-track {
-        background: #dbb08c; 
+        background: rgba(219, 176, 140, 0.5); 
       }
       .custom-scrollbar::-webkit-scrollbar-thumb {
         background: #8d6e63; /* Marron Glacé */
@@ -63,6 +129,25 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body>
+    <!-- Définition du filtre SVG pour l'effet papier froissé -->
+    <svg width="0" height="0" style="position: absolute;">
+      <filter id="paper-crumple">
+        <!-- 1. Génère du bruit fractal (texture de base) -->
+        <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
+        
+        <!-- 2. Conversion Luminance -> Alpha : CRUCIAL pour que le bruit devienne une carte de relief -->
+        <!-- Sans ça, diffuseLighting voit une surface plate et produit une couleur unie -->
+        <feColorMatrix type="luminanceToAlpha" in="noise" result="heightMap" />
+        
+        <!-- 3. Éclairage Diffus : Utilise la heightMap pour créer ombres et lumières (relief 3D) -->
+        <feDiffuseLighting in="heightMap" lighting-color="#ffffff" surfaceScale="2" result="bump">
+            <feDistantLight azimuth="45" elevation="60" />
+        </feDiffuseLighting>
+        
+        <!-- Le résultat est une image en niveaux de gris représentant le relief, qui sera mixée en CSS -->
+      </filter>
+    </svg>
+
     <div id="root"></div>
     <!-- Point d'entrée pour Vite (Build Tool) -->
     <script type="module" src="/index.tsx"></script>

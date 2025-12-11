@@ -1,5 +1,4 @@
 
-
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import { ParsedNote, Tuning, PlaybackState, TICKS_COUNT_IN } from '../types';
 import { STRING_CONFIGS, NOTE_COLORS } from '../constants';
@@ -194,7 +193,7 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
   const findStringAtX = (x: number, width: number) => {
      const centerX = width / 2;
      const spacing = getResponsiveSpacing(width);
-     let closestString = STRING_CONFIGS[0];
+     let closestString = STRING_CONFIGS.find(s => s.hand === 'G') || STRING_CONFIGS[0];
      let minDist = Infinity;
 
      STRING_CONFIGS.forEach(s => {
@@ -553,16 +552,13 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
     let animationId: number;
 
     const render = () => {
-      if (isExporting) {
-          if (canvas.width !== 1280) canvas.width = 1280;
-          if (canvas.height !== 720) canvas.height = 720;
-      } else {
-          if (containerRef.current) {
-            const desiredWidth = containerRef.current.clientWidth;
-            const desiredHeight = containerRef.current.clientHeight;
-            if (canvas.width !== desiredWidth) canvas.width = desiredWidth;
-            if (canvas.height !== desiredHeight) canvas.height = desiredHeight;
-          }
+      // Modif: On ne force plus la résolution 1280x720 pendant l'export pour éviter le décalage horizontal.
+      // On utilise toujours la taille du conteneur pour s'aligner avec le StringPad.
+      if (containerRef.current) {
+        const desiredWidth = containerRef.current.clientWidth;
+        const desiredHeight = containerRef.current.clientHeight;
+        if (canvas.width !== desiredWidth) canvas.width = desiredWidth;
+        if (canvas.height !== desiredHeight) canvas.height = desiredHeight;
       }
       
       const width = canvas.width;
@@ -584,9 +580,18 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
       const gridLeft = centerX - GRID_HALF_WIDTH;
       const gridRight = centerX + GRID_HALF_WIDTH;
 
-      // 1. Background (Plain Beige)
-      ctx.fillStyle = '#e5c4a1';
-      ctx.fillRect(0, 0, width, height);
+      // 1. Background
+      // Pour l'export vidéo, on a besoin d'un fond solide. 
+      // Pour l'interface UI, on veut de la transparence pour voir le mandala/texture body.
+      if (isExporting) {
+           ctx.fillStyle = '#e5c4a1';
+           ctx.fillRect(0, 0, width, height);
+      } else {
+           ctx.clearRect(0, 0, width, height);
+           // MODIF: Fond solide sous la grille pour masquer le mandala
+           ctx.fillStyle = '#e5c4a1';
+           ctx.fillRect(gridLeft, 0, gridRight - gridLeft, height);
+      }
       
       // 2. Highlight Bars (Drag or Hover)
       // Drag Highlight (Yellow)
@@ -598,7 +603,7 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
       // Grid Hover Highlight (Grey)
       else if (hoveredGridTickRef.current !== null) {
           const y = CANVAS_PADDING_TOP + ((hoveredGridTickRef.current - baseTickOffset) * TICK_HEIGHT) - scrollY;
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; 
+          ctx.fillStyle = '#000000'; // Noir pour la ligne témoin
           ctx.fillRect(gridLeft, y - 1, gridRight - gridLeft, 2);
       }
 
@@ -624,7 +629,9 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
            
            if (y >= -10 && y <= height + 10) {
                ctx.beginPath(); ctx.moveTo(gridLeft, y); ctx.lineTo(gridRight, y);
-               ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5; ctx.stroke();
+               // MODIFICATION: Ligne principale en Marron Glacé (#8d6e63)
+               ctx.strokeStyle = '#8d6e63'; 
+               ctx.lineWidth = 1.5; ctx.stroke();
                
                let label = "";
                if (t >= TICKS_COUNT_IN) {
@@ -635,7 +642,7 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
                         ctx.fillStyle = '#8d6e63';
                         ctx.fillText(`M${measureIndex}`, gridLeft - 25, y);
                    }
-                   ctx.fillStyle = '#5d4037'; 
+                   ctx.fillStyle = '#8d6e63'; // Aussi en Marron Glacé pour les numéros
                    ctx.fillText(label, gridLeft - 10, y);
                }
            }
@@ -643,19 +650,28 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
                const ty = y + (offset * TICK_HEIGHT);
                if (ty < -10 || ty > height + 10) return;
                ctx.beginPath(); ctx.moveTo(gridLeft, ty); ctx.lineTo(gridRight, ty);
-               ctx.strokeStyle = type === 'grey' ? '#888' : '#8d6e63';
-               ctx.lineWidth = 1;
+               
+               if (type === 'grey') {
+                   // MODIFICATION: Temps 1/2 en marron très fin (0.5px)
+                   ctx.strokeStyle = '#8d6e63';
+                   ctx.lineWidth = 0.5;
+               } else {
+                   // MODIFICATION: Temps 1/4 et 1/8 en marron (1px)
+                   ctx.strokeStyle = '#8d6e63';
+                   ctx.lineWidth = 1;
+               }
+               
                ctx.setLineDash(type === 'tight' ? [1,2] : (type === 'spaced' ? [1,6] : []));
                ctx.stroke(); ctx.setLineDash([]);
                if(label && t >= TICKS_COUNT_IN) { 
-                   ctx.fillStyle = '#5d4037'; 
+                   ctx.fillStyle = '#5d4037'; // Labels secondaires restent foncé pour lisibilité
                    ctx.textAlign = 'right';
                    ctx.fillText(label, gridLeft - 10, ty); 
                }
            }
            drawSubLine(6, 'grey', "1/2");
-           drawSubLine(3, 'tight', "1/4"); drawSubLine(9, 'tight', "1/4");
-           drawSubLine(1.5, 'spaced', "1/8"); drawSubLine(4.5, 'spaced', "1/8"); drawSubLine(7.5, 'spaced', "1/8"); drawSubLine(10.5, 'spaced', "1/8");
+           drawSubLine(3, 'spaced', "1/4"); drawSubLine(9, 'spaced', "1/4"); // MODIF: 1/4 -> spaced
+           drawSubLine(1.5, 'tight', "1/8"); drawSubLine(4.5, 'tight', "1/8"); drawSubLine(7.5, 'tight', "1/8"); drawSubLine(10.5, 'tight', "1/8"); // MODIF: 1/8 -> tight
       }
 
       // 4. Strings
@@ -667,7 +683,8 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
           ctx.beginPath(); ctx.strokeStyle = noteColor; ctx.lineWidth = 2;
           ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
       });
-      ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 2;
+      // MODIFICATION: Ligne centrale en Marron Glacé (#8d6e63) au lieu de noir
+      ctx.beginPath(); ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 2;
       ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height); ctx.stroke();
 
       // MASK: Count-In Zone Logic REMOVED.
@@ -829,7 +846,7 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
   }, [data, currentTick, tuning, rhythmMode, playbackState, isExporting, onNoteClick, onNoteDrag, onNoteHover, selectedNoteId, selectedNoteIds, dragSelectedIds, onBackgroundClick, onDeleteNote, onSeek, onNoteContextMenu, baseTickOffset]);
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-[#e5c4a1] overflow-y-auto custom-scrollbar relative select-none scrollbar-hide">
+    <div ref={containerRef} className="w-full h-full bg-transparent overflow-y-auto custom-scrollbar relative select-none scrollbar-hide">
       <div style={{ height: contentHeight, width: '100%' }} className="absolute top-0 left-0 pointer-events-none"></div>
       <canvas 
         ref={canvasRef} 
