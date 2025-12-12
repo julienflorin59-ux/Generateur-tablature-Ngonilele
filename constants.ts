@@ -115,9 +115,14 @@ export const SCALES_PRESETS: ScalePreset[] = [
 
 // NOTE: Tous les presets commencent désormais par 2 temps de silence (+ S)
 // Pour créer le décompte visuel.
-export const HEADER_SILENCE = "+   S\n+   S\n";
+const HEADER_SILENCE = "+   S\n+   S\n";
 
 export const PRESETS: SongPreset[] = [
+  {
+    name: "--- Nouveau / Vide ---",
+    code: HEADER_SILENCE,
+    category: 'common'
+  },
   {
     name: "Exercice Débutant 1 : Montée/Descente",
     code: HEADER_SILENCE + `1   1D
