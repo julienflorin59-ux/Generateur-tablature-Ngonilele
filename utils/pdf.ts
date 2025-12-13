@@ -1,4 +1,3 @@
-
 import { jsPDF } from "jspdf";
 import { parseTablature } from "./parser";
 import { STRING_CONFIGS, NOTE_COLORS } from "../constants";
@@ -86,9 +85,7 @@ export const generatePDF = (code: string, title: string = "Tablature Ngonilélé
     const drawSubLine = (y: number, type: 'grey' | 'tight' | 'spaced', label: string) => {
         doc.setLineWidth(0.1); // Plus fin pour le PDF
         if (type === 'grey') {
-            // Modification: Ligne 1/2 en marron très fin (0.05)
-            doc.setDrawColor(141, 110, 99); // #8d6e63
-            doc.setLineWidth(0.05); // Très fin
+            doc.setDrawColor(136, 136, 136); // #888
             doc.setLineDashPattern([], 0); // Solide
         } else if (type === 'tight') {
             doc.setDrawColor(141, 110, 99); // #8d6e63
@@ -122,8 +119,8 @@ export const generatePDF = (code: string, title: string = "Tablature Ngonilélé
             doc.line(x, y1, x, y2);
         });
         
-        // Ligne centrale - MODIFICATION: Marron Glacé (141, 110, 99)
-        doc.setDrawColor(141, 110, 99);
+        // Ligne centrale
+        doc.setDrawColor(0);
         doc.setLineWidth(0.5);
         doc.line(CENTER_X, y1, CENTER_X, y2);
     };
@@ -153,26 +150,26 @@ export const generatePDF = (code: string, title: string = "Tablature Ngonilélé
             const y = cursorY + ((t - startTick) * TICK_SCALE);
             
             if (y >= cursorY && y <= endY) {
-                // Modification: Ligne Temps Principal en Marron Glacé (141, 110, 99)
-                doc.setDrawColor(141, 110, 99); // #8d6e63
+                // Ligne Temps Principal (Noire)
+                doc.setDrawColor(0);
                 doc.setLineWidth(0.3);
                 doc.line(CENTER_X - (7 * STRING_SPACING), y, CENTER_X + (7 * STRING_SPACING), y);
                 
                 // Numéro du temps
                 const beatNum = Math.floor(t / 12) + 1; // Simplifié, compteur absolu
                 doc.setFontSize(7);
-                doc.setTextColor(141, 110, 99); // Marron Glacé
+                doc.setTextColor(93, 64, 55);
                 doc.text(beatNum.toString(), CENTER_X - (7 * STRING_SPACING) - 4, y + 1);
 
                 // Sous-lignes
                 // +6 ticks (1/2)
                 drawSubLine(y + (6 * TICK_SCALE), 'grey', "1/2");
                 // +3, +9 (1/4)
-                drawSubLine(y + (3 * TICK_SCALE), 'spaced', "1/4"); // MODIF: spaced
-                drawSubLine(y + (9 * TICK_SCALE), 'spaced', "1/4"); // MODIF: spaced
+                drawSubLine(y + (3 * TICK_SCALE), 'tight', "1/4");
+                drawSubLine(y + (9 * TICK_SCALE), 'tight', "1/4");
                 // +1.5 ... (1/8)
                 [1.5, 4.5, 7.5, 10.5].forEach(offset => {
-                    drawSubLine(y + (offset * TICK_SCALE), 'tight', "1/8"); // MODIF: tight
+                    drawSubLine(y + (offset * TICK_SCALE), 'spaced', "1/8");
                 });
             }
         }

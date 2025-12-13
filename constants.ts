@@ -1,3 +1,4 @@
+
 import { NoteConfig, SongPreset, ScalePreset, Tuning } from './types';
 
 // =================================================================================
@@ -5,25 +6,26 @@ import { NoteConfig, SongPreset, ScalePreset, Tuning } from './types';
 // =================================================================================
 // Configuration mise à jour vers le nouveau dépôt GitHub de l'utilisateur.
 // Les fichiers sont chargés via le CDN Raw de GitHub.
-export const ASSETS_BASE_URL = "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilélé/main/"; 
+export const ASSETS_BASE_URL = "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/"; 
 
 // Standard Note Colors (User requirement: Fixed color per note)
+// Couleurs adoucies (Palette "Nature/Papier") pour éviter le côté flashy
 export const NOTE_COLORS: Record<string, string> = {
-  'C': '#FF0000', // Red
-  'D': '#FF8C00', // Dark Orange
-  'E': '#FFD700', // Gold
-  'F': '#32CD32', // Lime Green
-  'G': '#00BFFF', // Deep Sky Blue
-  'A': '#2563EB', // Dark Blue (Lighter shade: Royal Blue)
-  'B': '#9400D3'  // Dark Violet
+  'C': '#CD6155', // Rouge Terreux (Soft Red)
+  'D': '#DC7633', // Orange Brûlé (Burnt Orange)
+  'E': '#D4AC0D', // Or Vieilli (Antique Gold) - Plus lisible sur fond beige
+  'F': '#27AE60', // Vert Naturel (Natural Green)
+  'G': '#5DADE2', // Bleu Ciel Doux (Soft Sky Blue) - Distinct du Bleu Nuit
+  'A': '#1F618D', // Bleu Nuit (Dark Blue)
+  'B': '#8E44AD'  // Violet Prune (Plum)
 };
 
 // Deprecated: Old static string colors. Kept for backward compat if needed, but logic replaced.
 export const COLORS_VISU: Record<string, string> = {
-  '6G': '#00BFFF', '5G': '#FF4B4B', '4G': '#00008B',
-  '3G': '#FFD700', '2G': '#FF4B4B', '1G': '#00BFFF',
-  '1D': '#32CD32', '2D': '#00008B', '3D': '#FFA500',
-  '4D': '#00BFFF', '5D': '#9400D3', '6D': '#FFD700'
+  '6G': '#5DADE2', '5G': '#DC7633', '4G': '#1F618D',
+  '3G': '#D4AC0D', '2G': '#CD6155', '1G': '#5DADE2',
+  '1D': '#D4AC0D', '2D': '#1F618D', '3D': '#DC7633',
+  '4D': '#5DADE2', '5D': '#CD6155', '6D': '#D4AC0D'
 };
 
 export const BASE_TUNING: Record<string, string> = {
@@ -115,14 +117,9 @@ export const SCALES_PRESETS: ScalePreset[] = [
 
 // NOTE: Tous les presets commencent désormais par 2 temps de silence (+ S)
 // Pour créer le décompte visuel.
-const HEADER_SILENCE = "+   S\n+   S\n";
+export const HEADER_SILENCE = "+   S\n+   S\n";
 
 export const PRESETS: SongPreset[] = [
-  {
-    name: "--- Nouveau / Vide ---",
-    code: HEADER_SILENCE,
-    category: 'common'
-  },
   {
     name: "Exercice Débutant 1 : Montée/Descente",
     code: HEADER_SILENCE + `1   1D

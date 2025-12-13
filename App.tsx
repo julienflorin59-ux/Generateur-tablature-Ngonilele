@@ -1,8 +1,7 @@
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Play, Square, FileText, Music, Info, Download, Code, Video, Grid3X3, Settings, Share2, Star, Edit3, Headphones, Plus, Menu, X, Box, ChevronDown, Minus, ChevronsLeft, Activity, Save, FolderOpen, Palette, FileDown, Pause, SkipBack, Trash2, Clock, Ban, RotateCcw, Edit, Timer, Gauge, Undo2, ArrowDownToLine, MousePointerClick, MessageSquarePlus, Wand2, Hand, Zap, MoveRight, BookOpen, Mic, MicOff, Film, FileType, CheckCircle2, MousePointer, ThumbsUp, Copy, Clipboard, Repeat, LayoutGrid, Lock, User, UserCheck, Users, Shield, ShieldAlert, KeyRound, Loader2, PenLine, Mail, Bug, HelpCircle, Send, MousePointer2, Smartphone, Piano, ExternalLink, ChevronUp, LifeBuoy } from 'lucide-react';
-import { PRESETS, NOTE_COLORS, SCALES_PRESETS, ASSETS_BASE_URL, STRING_CONFIGS, BASE_TUNING, ALL_CHROMATIC_NOTES, AVAILABLE_SAMPLES } from './constants';
+import { PRESETS, NOTE_COLORS, SCALES_PRESETS, ASSETS_BASE_URL, STRING_CONFIGS, BASE_TUNING, ALL_CHROMATIC_NOTES, AVAILABLE_SAMPLES, HEADER_SILENCE } from './constants';
 import { parseTablature } from './utils/parser';
 import { audioEngine } from './utils/audio';
 import { generatePDF } from './utils/pdf';
@@ -20,11 +19,22 @@ const VALID_ACCESS_CODES = [
   'JULIE-D-2025'      // Julie Denudt
 ]; 
 
-// BACKGROUND IMAGES MAP
+// BACKGROUND IMAGES MAP (Updated for Responsive)
+// Using raw.githubusercontent.com for faster loading
 const BG_IMAGES = {
-    TUNING: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/logo_mandala.png",
-    EDITOR: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala2.png",
-    MEDIA: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala3.png"
+    TUNING: {
+        desktop: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala1.png",
+        mobile: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala1.png" 
+    },
+    EDITOR: {
+        desktop: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala2.png",
+        mobile: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala2.png" 
+    },
+    MEDIA: {
+        desktop: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala3.png",
+        mobile: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandala3.png" 
+    },
+    MENU: "https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/mandalamenu.png"
 };
 
 // Helper to get color for a specific note
@@ -37,16 +47,17 @@ const getNoteColor = (note: string) => {
 // --- DYNAMIC BACKGROUND COMPONENT ---
 interface DynamicBackgroundProps {
     image: string;
+    bgSize?: string; // Prop optionnelle pour contrôler le zoom (cover/contain)
 }
-const DynamicBackground: React.FC<DynamicBackgroundProps> = ({ image }) => (
+const DynamicBackground: React.FC<DynamicBackgroundProps> = ({ image, bgSize = 'cover' }) => (
     <div 
         className="fixed inset-0 pointer-events-none transition-all duration-700 ease-in-out z-[-1]"
         style={{
             backgroundImage: `url('${image}')`,
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            backgroundSize: 'contain', // "jusqu'aux bordures" sans couper
-            opacity: 0.12,
+            backgroundSize: bgSize, // Utilisation de la prop
+            opacity: 0.25,
             mixBlendMode: 'multiply'
         }}
     />
@@ -163,12 +174,18 @@ interface LoginScreenProps {
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
     const [code, setCode] = useState('');
     const [error, setError] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
         const saved = localStorage.getItem('ngonilele_license_code');
         if (saved && VALID_ACCESS_CODES.includes(saved)) {
             onLogin();
         }
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -188,12 +205,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest }) => {
             setError("Clé de licence invalide.");
         }
     };
+    
+    // Choose Image based on screen size
+    const bgImage = isMobile ? BG_IMAGES.TUNING.mobile : BG_IMAGES.TUNING.desktop;
 
     return (
         // BG-TRANSPARENT here to show Body background
         <div className="min-h-screen w-full bg-transparent flex flex-col items-center justify-center p-4 text-[#5d4037]">
-            <DynamicBackground image={BG_IMAGES.TUNING} />
-            <div className="w-full max-w-md bg-[#dcc0a3]/90 border-2 border-[#cbb094] rounded-2xl shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-300 backdrop-blur-sm relative z-10">
+            <DynamicBackground image={bgImage} />
+            <div className="w-full max-w-md bg-[#dcc0a3]/70 border-2 border-[#cbb094] rounded-2xl shadow-2xl p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-300 backdrop-blur-md relative z-10">
                 <div className="flex flex-col items-center gap-2">
                     <div className="w-16 h-16 bg-[#A67C52] text-white rounded-full flex items-center justify-center shadow-lg mb-2">
                         <Lock size={32} />
@@ -288,7 +308,7 @@ export default function App() {
   const [bankTab, setBankTab] = useState<'song' | 'exercise' | 'user'>('song');
   const [selectedPresetName, setSelectedPresetName] = useState<string>('');
   const [tabTitle, setTabTitle] = useState<string>("Ma Composition"); // New State for Title
-  const [code, setCode] = useState(PRESETS[0].code);
+  const [code, setCode] = useState(HEADER_SILENCE); // Start Empty with Count In
   const [codeHistory, setCodeHistory] = useState<string[]>([]); 
   const [bpm, setBpm] = useState(100);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0); 
@@ -348,6 +368,7 @@ export default function App() {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [userPresets, setUserPresets] = useState<SongPreset[]>([]);
+  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
 
   // Selection & Clipboard & Blocks
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -360,6 +381,9 @@ export default function App() {
 
   const [selectedScaleName, setSelectedScaleName] = useState(SCALES_PRESETS[0].name);
   const [currentTuning, setCurrentTuning] = useState<Tuning>(SCALES_PRESETS[0].tuning);
+
+  // Media Query State
+  const [isDesktop, setIsDesktop] = useState(true);
 
   // Refs for State in Effects
   const currentTuningRef = useRef(currentTuning);
@@ -411,6 +435,17 @@ export default function App() {
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Responsive Check Hook
+  useEffect(() => {
+      const checkDesktop = () => {
+          setIsDesktop(window.innerWidth >= 768);
+      };
+      // Init
+      checkDesktop();
+      window.addEventListener('resize', checkDesktop);
+      return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
   useEffect(() => {
@@ -837,6 +872,34 @@ export default function App() {
       }, 500);
   };
 
+  const handleShareCurrentWork = () => {
+      // 1. Download File using current state
+      const project = { 
+          name: tabTitle, 
+          code: code, 
+          category: 'common', 
+          scaleName: selectedScaleName 
+      };
+      
+      const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeFilename = tabTitle.trim().replace(/[^a-z0-9\-_]/gi, '_') || 'mon_projet';
+      a.download = `${safeFilename}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // 2. Open Mail Client
+      setTimeout(() => {
+          const subject = encodeURIComponent(`Partage Tablature Ngonilélé : ${tabTitle}`);
+          const body = encodeURIComponent(`Bonjour,\n\nVoici ma tablature : "${tabTitle}".\n\n(Veuillez joindre le fichier .json qui vient d'être téléchargé sur votre appareil)\n\nCordialement.`);
+          window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      }, 500);
+  };
+
   const handleInsertText = () => { setTextInputModal({ visible: true, text: '', targetTick: currentTick }); };
   
   const handleConfirmTextInsert = () => {
@@ -1085,6 +1148,22 @@ export default function App() {
       }
       else if (type === 'TEXT') { setTextInputModal({ visible: true, text: '', targetTick: tick }); }
       setInsertMenu({ ...insertMenu, visible: false });
+  };
+
+  // --- NEW PROJECT LOGIC ---
+  const handleNewProject = () => {
+      setNewProjectModalOpen(true);
+  };
+
+  const confirmNewProject = () => {
+      setCode(HEADER_SILENCE);
+      setTabTitle("Ma Composition");
+      setPlaybackState(PlaybackState.STOPPED);
+      setCurrentTick(TICKS_COUNT_IN);
+      setCodeHistory([]);
+      setSelectedNoteId(null);
+      setSelectedNoteIds([]);
+      setNewProjectModalOpen(false);
   };
 
   // --- VOICE INPUT LOGIC REFACTORED (DIRECT INSERT MODE) ---
@@ -1516,18 +1595,136 @@ export default function App() {
   }
 
   // DETERMINE CURRENT BACKGROUND IMAGE
-  let currentBgImage = BG_IMAGES.TUNING;
-  if (mainTab === 'editor') currentBgImage = BG_IMAGES.EDITOR;
-  if (mainTab === 'media') currentBgImage = BG_IMAGES.MEDIA;
+  const deviceType = isDesktop ? 'desktop' : 'mobile';
+  
+  let currentBgImage = BG_IMAGES.TUNING[deviceType];
+  let currentBgSize = 'cover';
+
+  if (mainTab === 'editor') {
+      currentBgImage = BG_IMAGES.EDITOR[deviceType];
+      currentBgSize = 'cover'; // Changed from '100% 100%' to 'cover' per user request
+  }
+  if (mainTab === 'media') {
+      currentBgImage = BG_IMAGES.MEDIA[deviceType];
+  }
 
   return (
     <div className="h-screen w-full flex flex-col md:flex-row bg-transparent text-[#5d4037] overflow-hidden font-sans" onClick={() => { if(editModal.visible) setEditModal({ ...editModal, visible: false }); if(insertMenu.visible) setInsertMenu({ ...insertMenu, visible: false }); }}>
       
       {/* BACKGROUND LAYER */}
-      <DynamicBackground image={currentBgImage} />
+      <DynamicBackground image={currentBgImage} bgSize={currentBgSize} />
 
-      {/* ... (LEGEND MODAL, SAVE PRESET, SAVE BLOCK, MY BLOCKS - Unchanged) ... */}
-      {/* Keeping previous modal codes implicitly or explicitly if needed, assuming they are part of the file block structure */}
+      {/* NEW PROJECT MODAL */}
+      {newProjectModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setNewProjectModalOpen(false)}>
+            <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col items-center text-center gap-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <div className="w-16 h-16 bg-[#800020]/10 rounded-full flex items-center justify-center text-[#800020] mb-2 border border-[#800020]/20">
+                 <ShieldAlert size={32} />
+              </div>
+              <div>
+                  <h3 className="text-xl font-bold text-[#5d4037] mb-2">Nouveau Projet ?</h3>
+                  <p className="text-sm text-[#8d6e63] font-medium leading-relaxed">Attention, vous allez effacer toute votre composition actuelle. Cette action est irréversible.</p>
+              </div>
+              <div className="flex gap-3 w-full mt-2">
+                <button 
+                    onClick={() => setNewProjectModalOpen(false)} 
+                    className="flex-1 py-3 border-2 border-[#cbb094] rounded-lg font-bold text-[#8d6e63] hover:bg-[#dcc0a3] hover:text-[#5d4037] transition-colors"
+                >
+                    Annuler
+                </button>
+                <button 
+                    onClick={confirmNewProject} 
+                    className="flex-1 py-3 bg-[#800020] text-white rounded-lg font-bold hover:bg-[#600018] shadow-md flex items-center justify-center gap-2 transition-colors"
+                >
+                    <Trash2 size={18}/> Tout Effacer
+                </button>
+              </div>
+            </div>
+        </div>
+      )}
+
+      {/* MY BLOCKS MODAL */}
+      {myBlocksModalOpen && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setMyBlocksModalOpen(false)}>
+              <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                  <div className="p-4 border-b border-[#cbb094] flex justify-between items-center bg-[#cbb094]/30">
+                      <h3 className="font-bold text-lg text-[#5d4037] flex items-center gap-2"><LayoutGrid size={20}/> Mes Blocs Sauvegardés</h3>
+                      <button onClick={() => setMyBlocksModalOpen(false)}><X size={24} className="text-[#5d4037]"/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
+                      {savedBlocks.length === 0 ? (
+                          <div className="text-center py-8 text-[#8d6e63] italic">Aucun bloc sauvegardé.</div>
+                      ) : (
+                          savedBlocks.map(block => (
+                              <div key={block.id} className={`bg-[#dcc0a3] p-3 rounded-lg border border-[#cbb094] flex items-center justify-between group ${selectedBlockIdsForDeletion.includes(String(block.id)) ? 'ring-2 ring-red-500 bg-red-100' : ''}`}>
+                                  <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 bg-[#e5c4a1] rounded flex items-center justify-center text-[#8d6e63] font-bold text-xs shadow-inner">
+                                          {block.notes.length}♪
+                                      </div>
+                                      <div>
+                                          <h4 className="font-bold text-[#5d4037]">{block.name}</h4>
+                                          <p className="text-xs text-[#8d6e63]">{block.notes.length} notes • {Math.round(block.notes[block.notes.length-1].tick/12)} temps</p>
+                                      </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                      {userRole === 'admin' && (
+                                         <button 
+                                            onClick={() => toggleBlockSelection(block.id)}
+                                            className={`p-2 rounded hover:bg-red-200 text-[#8d6e63] hover:text-red-600 transition-colors ${selectedBlockIdsForDeletion.includes(String(block.id)) ? 'bg-red-500 text-white hover:bg-red-600 hover:text-white' : ''}`}
+                                            title="Sélectionner pour suppression"
+                                         >
+                                            <Trash2 size={16}/>
+                                         </button>
+                                      )}
+                                      <button onClick={() => handlePasteBlock(block)} className="px-3 py-1.5 bg-[#8d6e63] text-white rounded font-bold text-xs hover:bg-[#6d4c41] shadow-sm flex items-center gap-2">
+                                          <Clipboard size={14}/> Coller
+                                      </button>
+                                  </div>
+                              </div>
+                          ))
+                      )}
+                  </div>
+                  {selectedBlockIdsForDeletion.length > 0 && userRole === 'admin' && (
+                      <div className="p-4 border-t border-[#cbb094] bg-red-50 flex justify-between items-center animate-in slide-in-from-bottom-2">
+                          <span className="text-xs font-bold text-red-800">{selectedBlockIdsForDeletion.length} bloc(s) sélectionné(s)</span>
+                          <button onClick={handleDeleteSelectedBlocks} className="px-4 py-2 bg-red-600 text-white rounded font-bold text-xs hover:bg-red-700 shadow flex items-center gap-2">
+                              <Trash2 size={14}/> Supprimer définitivement
+                          </button>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
+
+      {/* SAVE PRESET MODAL */}
+      {saveModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setSaveModalOpen(false)}>
+            <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg text-[#5d4037]">Sauvegarder la Tablature</h3>
+              <input type="text" placeholder="Nom du morceau..." className="w-full p-2 border border-[#cbb094] rounded bg-[#dcc0a3] text-[#5d4037] font-bold outline-none focus:ring-2 focus:ring-[#A67C52]" value={saveName} onChange={(e) => setSaveName(e.target.value)} autoFocus />
+              <div className="flex gap-2 justify-end mt-2">
+                  <button onClick={() => setSaveModalOpen(false)} className="px-4 py-2 text-[#8d6e63] font-bold hover:bg-[#cbb094] rounded">Annuler</button>
+                  <button onClick={handleSaveToLibrary} disabled={!saveName.trim()} className="px-6 py-2 bg-[#A67C52] text-white font-bold rounded shadow hover:bg-[#8d6e63] disabled:opacity-50">Sauvegarder</button>
+              </div>
+            </div>
+        </div>
+      )}
+      
+      {/* BLOCK NAME MODAL */}
+      {blockNameModal.visible && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setBlockNameModal({ visible: false })}>
+            <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg text-[#5d4037]">Nommer le Bloc</h3>
+              <input type="text" placeholder="Nom du bloc..." className="w-full p-2 border border-[#cbb094] rounded bg-[#dcc0a3] text-[#5d4037] font-bold outline-none focus:ring-2 focus:ring-[#A67C52]" value={blockNameInput} onChange={(e) => setBlockNameInput(e.target.value)} autoFocus />
+              <div className="flex gap-2 justify-end mt-2">
+                  <button onClick={() => setBlockNameModal({ visible: false })} className="px-4 py-2 text-[#8d6e63] font-bold hover:bg-[#cbb094] rounded">Annuler</button>
+                  <button onClick={handleSaveBlock} className="px-6 py-2 bg-[#A67C52] text-white font-bold rounded shadow hover:bg-[#8d6e63]">Enregistrer</button>
+              </div>
+            </div>
+        </div>
+      )}
+
+      {/* LEGEND MODAL */}
       {legendModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setLegendModalOpen(false)}>
             <div className="bg-[#e5c4a1] border-2 border-[#cbb094] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -1628,118 +1825,145 @@ export default function App() {
 
       {/* SIDEBAR - SEMI TRANSPARENT */}
       <aside className={`
-        fixed md:static inset-y-0 left-0 z-50 bg-[#dcc0a3]/90 border-r border-[#cbb094] flex flex-col transition-all duration-300 ease-in-out shadow-xl md:shadow-none backdrop-blur-sm
-        ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
-        ${isDesktopSidebarOpen ? 'md:w-72' : 'md:w-0 md:opacity-0 md:overflow-hidden'}
+        fixed inset-y-0 left-0 z-50 h-full bg-[#cbb094] border-r border-[#a68b6c] flex flex-col transition-all duration-300 ease-in-out shadow-xl md:shadow-none overflow-hidden
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:translate-x-0
+        w-64
+        ${isDesktopSidebarOpen ? 'md:w-72' : 'md:w-0'}
       `}>
-        {/* HEADER SIDEBAR */}
-        <div className="p-4 border-b border-[#cbb094] flex flex-col gap-4 bg-[#e5c4a1]/50">
-           <div className="flex flex-col items-center gap-2 text-center">
-              <div className="w-[108px] h-[108px] flex items-center justify-center shrink-0">
-                  <img 
-                    src="https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/logo_mandala.png" 
-                    alt="Logo Ngonilélé" 
-                    className="w-full h-full object-contain animate-in fade-in zoom-in"
-                  />
-              </div>
-              <div>
-                  <h1 className="font-serif font-bold text-2xl leading-none text-[#5d4037] break-words">Ngonilélé</h1>
-                  <span className="text-sm uppercase font-bold text-[#8d6e63] tracking-widest">Tablatures</span>
-              </div>
-           </div>
-           
-           {/* TABS */}
-           <div className="flex bg-[#e5c4a1] p-1 rounded-lg border border-[#cbb094]">
-               <button onClick={() => setBankTab('song')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'song' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
-                   <Music size={12}/> Morceaux
-               </button>
-               <button onClick={() => setBankTab('exercise')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'exercise' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
-                   <Activity size={12}/> Exercices
-               </button>
-               <button onClick={() => setBankTab('user')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'user' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
-                   <User size={12}/> Mes Tabs
-               </button>
-           </div>
-        </div>
-
-        {/* LIST */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-            <h3 className="text-xs font-black text-[#8d6e63] uppercase tracking-wider mb-2 px-2 mt-2 flex justify-between items-center">
-                <span>{bankTab === 'song' ? 'Chansons' : bankTab === 'exercise' ? 'Exercices' : 'Mes Créations'}</span>
-                <span className="bg-[#cbb094] text-[#5d4037] px-1.5 py-0.5 rounded text-[10px]">{filteredPresets.length}</span>
-            </h3>
-            
-            <div className="flex flex-col gap-1">
-                {filteredPresets.map((preset) => (
-                    <button 
-                        key={preset.name}
-                        onClick={() => { setSelectedPresetName(preset.name); handleLoadSelectedPreset(); }} 
-                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all border border-transparent group relative
-                           ${selectedPresetName === preset.name 
-                               ? 'bg-[#e5c4a1] border-[#cbb094] shadow-sm' 
-                               : 'hover:bg-[#e5c4a1]/50 hover:border-[#cbb094]/30'}
-                        `}
-                    >
-                        <div className="flex items-center justify-between">
-                             <span className={`text-xs font-bold ${selectedPresetName === preset.name ? 'text-[#5d4037]' : 'text-[#8d6e63] group-hover:text-[#5d4037]'}`}>
-                                 {preset.name}
-                             </span>
-                             {/* Icons for User Presets */}
-                             {bankTab === 'user' && selectedPresetName === preset.name && (
-                                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                     <button onClick={handleShareUserPreset} className="p-1 hover:bg-[#dcc0a3] rounded text-[#8d6e63] hover:text-[#5d4037]" title="Partager par mail"><Mail size={12}/></button>
-                                     {userRole === 'admin' && <button onClick={handleDeleteUserPreset} className="p-1 hover:bg-red-100 rounded text-[#8d6e63] hover:text-red-500" title="Supprimer"><Trash2 size={12}/></button>}
-                                 </div>
-                             )}
-                        </div>
-                    </button>
-                ))}
-                
-                {filteredPresets.length === 0 && (
-                    <div className="text-center py-8 text-xs text-[#8d6e63] italic opacity-70">
-                        Aucun élément trouvé.
-                    </div>
-                )}
-            </div>
-        </div>
         
-        {/* FOOTER */}
-        <div className="p-4 border-t border-[#cbb094] bg-[#e5c4a1]/30 flex flex-col gap-3">
-             {/* Contribuer */}
-             <div className="flex flex-col gap-1">
-                 <h4 className="text-[10px] font-black uppercase tracking-wider text-[#8d6e63] mb-1">Contribuer</h4>
-                 <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Morceau%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
-                     <Music size={14}/>
-                     <span>Proposer un morceau</span>
-                 </a>
-                 <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Gamme%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
-                     <Settings size={14}/>
-                     <span>Proposer une gamme</span>
-                 </a>
-             </div>
-             
-             <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+        {/* 1. Background Image Layer - Z-0 */}
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ 
+            backgroundImage: `url('${BG_IMAGES.MENU}')`, 
+            backgroundSize: 'cover', 
+            backgroundPosition: 'center', 
+        }} />
 
-             {/* Assistance */}
-             <div className="flex flex-col gap-1">
-                 <a href="mailto:julienflorin59@gmail.com?subject=Bug%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#800020] hover:text-red-600 transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
-                     <Bug size={14}/>
-                     <span>Reporter un bug</span>
-                 </a>
-                 <button onClick={() => setLegendModalOpen(true)} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
-                     <LifeBuoy size={14}/>
-                     <span>Guide d'utilisation</span>
-                 </button>
-             </div>
+        {/* 2. Color Overlay (Tint) - Z-0 */}
+        <div className="absolute inset-0 z-0 bg-[#cbb094] opacity-85 pointer-events-none" />
 
-             <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+        {/* 3. Content Wrapper - Z-10 (Au dessus de l'image) */}
+        <div className="flex flex-col h-full z-10 relative">
+            {/* HEADER SIDEBAR */}
+            <div className="p-4 border-b border-[#cbb094] flex flex-col gap-4 bg-[#e5c4a1]/30 backdrop-blur-[2px]">
+            <div className="flex flex-col items-center gap-2 text-center">
+                <div className="w-[108px] h-[108px] flex items-center justify-center shrink-0 rounded-full overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <img 
+                        src="https://raw.githubusercontent.com/julienflorin59-ux/Generateur-tablature-Ngonilele/main/logo_mandala.png" 
+                        alt="Logo Ngonilélé" 
+                        className="w-full h-full object-cover animate-in fade-in zoom-in transition-transform duration-500 ease-in-out hover:scale-110 active:scale-150"
+                        style={{ mixBlendMode: 'darken' }}
+                    />
+                </div>
+                <div>
+                    <h1 className="font-serif font-bold text-2xl leading-none text-[#800020] break-words">Ngonilélé</h1>
+                    <span className="text-sm uppercase font-bold text-[#8d6e63] tracking-widest">Tablatures</span>
+                </div>
+            </div>
+            
+            {/* TABS */}
+            <div className="flex bg-[#e5c4a1]/50 backdrop-blur-[2px] p-1 rounded-lg border border-[#cbb094]">
+                <button onClick={() => setBankTab('song')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'song' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                    <Music size={12}/> Morceaux
+                </button>
+                <button onClick={() => setBankTab('exercise')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'exercise' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                    <Activity size={12}/> Exercices
+                </button>
+                <button onClick={() => setBankTab('user')} className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 transition-all ${bankTab === 'user' ? 'bg-[#8d6e63] text-white shadow-sm' : 'text-[#8d6e63] hover:bg-[#dcc0a3]'}`}>
+                    <User size={12}/> Mes Tabs
+                </button>
+            </div>
+            </div>
 
-             {/* Credits */}
-             <div className="text-[10px] text-center text-[#8d6e63] leading-tight">
-                 <div className="font-bold">Développé par Julien Florin</div>
-                 <a href="mailto:julienflorin59@gmail.com" className="hover:underline opacity-80 hover:opacity-100">julienflorin59@gmail.com</a>
-                 <div className="opacity-50 mt-1">v1.3.1</div>
-             </div>
+            {/* LIST */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                <h3 className="text-xs font-black text-[#8d6e63] uppercase tracking-wider mb-2 px-2 mt-2 flex justify-between items-center">
+                    <span>{bankTab === 'song' ? 'Chansons' : bankTab === 'exercise' ? 'Exercices' : 'Mes Créations'}</span>
+                    <span className="bg-[#cbb094] text-[#5d4037] px-1.5 py-0.5 rounded text-[10px]">{filteredPresets.length}</span>
+                </h3>
+                
+                <div className="flex flex-col gap-1">
+                    {filteredPresets.map((preset) => (
+                        <button 
+                            key={preset.name}
+                            onClick={() => { setSelectedPresetName(preset.name); handleLoadSelectedPreset(); }} 
+                            className={`w-full text-left px-3 py-2.5 rounded-lg transition-all border border-transparent group relative
+                            ${selectedPresetName === preset.name 
+                                ? 'bg-[#e5c4a1] border-[#cbb094] shadow-sm' 
+                                : 'hover:bg-[#e5c4a1]/50 hover:border-[#cbb094]/30'}
+                            `}
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className={`text-xs font-bold ${selectedPresetName === preset.name ? 'text-[#5d4037]' : 'text-[#8d6e63] group-hover:text-[#5d4037]'}`}>
+                                    {preset.name}
+                                </span>
+                                {/* Icons for User Presets */}
+                                {bankTab === 'user' && selectedPresetName === preset.name && (
+                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <button onClick={handleShareUserPreset} className="p-1 hover:bg-[#dcc0a3] rounded text-[#8d6e63] hover:text-[#5d4037]" title="Partager par mail"><Mail size={12}/></button>
+                                        {userRole === 'admin' && <button onClick={handleDeleteUserPreset} className="p-1 hover:bg-red-100 rounded text-[#8d6e63] hover:text-red-500" title="Supprimer"><Trash2 size={12}/></button>}
+                                    </div>
+                                )}
+                            </div>
+                        </button>
+                    ))}
+                    
+                    {filteredPresets.length === 0 && (
+                        <div className="text-center py-8 text-xs text-[#8d6e63] italic opacity-70">
+                            Aucun élément trouvé.
+                        </div>
+                    )}
+                </div>
+            </div>
+            
+            {/* FOOTER */}
+            <div className="p-4 border-t border-[#cbb094] bg-[#e5c4a1]/30 flex flex-col gap-3">
+                {/* Partage Actuel */}
+                <div className="flex flex-col gap-1">
+                    <button onClick={handleShareCurrentWork} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
+                        <Send size={14}/>
+                        <span>Envoyer ma Tablature</span>
+                    </button>
+                </div>
+
+                <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+
+                {/* Contribuer */}
+                <div className="flex flex-col gap-1">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-[#8d6e63] mb-1">Contribuer</h4>
+                    <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Morceau%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <Music size={14}/>
+                        <span>Proposer un morceau</span>
+                    </a>
+                    <a href="mailto:julienflorin59@gmail.com?subject=Proposition%20Gamme%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <Settings size={14}/>
+                        <span>Proposer une gamme</span>
+                    </a>
+                </div>
+                
+                <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+
+                {/* Assistance */}
+                <div className="flex flex-col gap-1">
+                    <a href="mailto:julienflorin59@gmail.com?subject=Bug%20Ngonilélé" className="flex items-center gap-2 text-xs font-bold text-[#800020] hover:text-red-600 transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded">
+                        <Bug size={14}/>
+                        <span>Reporter un bug</span>
+                    </a>
+                    <button onClick={() => setLegendModalOpen(true)} className="flex items-center gap-2 text-xs font-bold text-[#5d4037] hover:text-[#8d6e63] transition-colors p-1.5 hover:bg-[#cbb094]/50 rounded w-full text-left">
+                        <LifeBuoy size={14}/>
+                        <span>Guide d'utilisation</span>
+                    </button>
+                </div>
+
+                <div className="w-full h-[1px] bg-[#cbb094]/50"></div>
+
+                {/* Credits */}
+                <div className="text-[10px] text-center text-[#8d6e63] leading-tight">
+                    <div className="font-bold">Développé par Julien Florin</div>
+                    <a href="mailto:julienflorin59@gmail.com" className="hover:underline opacity-80 hover:opacity-100">julienflorin59@gmail.com</a>
+                    <div className="opacity-50 mt-1">v1.3.1</div>
+                </div>
+            </div>
         </div>
       </aside>
 
@@ -1747,10 +1971,13 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full bg-transparent">
           
           <header className="pt-4 px-4 md:pt-8 md:px-10 pb-2 bg-transparent flex-none">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 mb-4">
+              <div className="flex flex-row items-center gap-4 md:gap-6 mb-4">
+                 {/* Desktop Toggle */}
                  <button onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} className="hidden md:flex items-center justify-center p-2 bg-[#dcc0a3] hover:bg-[#cbb094] rounded-full text-[#5d4037] shadow-sm border border-[#cbb094] transition-all">{isDesktopSidebarOpen ? <ChevronsLeft size={24}/> : <Menu size={24}/>}</button>
-                 {/* Title Removed from here */}
-                 {/* HIDDEN: Open/Save Buttons removed here */}
+                 
+                 {/* Mobile Toggle */}
+                 <button onClick={() => setIsSidebarOpen(true)} className="md:hidden flex items-center justify-center p-2 bg-[#dcc0a3] hover:bg-[#cbb094] rounded-full text-[#5d4037] shadow-sm border border-[#cbb094] transition-all"><Menu size={24}/></button>
+
                  <input type="file" accept=".json" ref={loadProjectInputRef} onChange={handleLoadProject} className="hidden" />
               </div>
 
@@ -1826,7 +2053,7 @@ export default function App() {
 
               {mainTab === 'tuning' && (
                   <div className="h-full overflow-y-auto scrollbar-hide animate-in fade-in duration-300 pb-2 pt-1 flex flex-col items-center">
-                      <div className="bg-[#e5c4a1]/80 p-4 rounded-xl backdrop-blur-sm shadow-sm w-full max-w-3xl flex flex-col items-center gap-2 border border-[#cbb094]">
+                      <div className="bg-[#e5c4a1]/60 p-4 rounded-xl backdrop-blur-md shadow-sm w-full max-w-3xl flex flex-col items-center gap-2 border border-[#cbb094]">
                           <h2 className="text-lg md:text-xl font-bold mb-1">Gamme & Accordage</h2>
                           <div className="mb-1 w-full max-w-xl">
                               <label className="text-xs text-[#8d6e63] mb-0.5 block font-bold text-center">Sélectionner la gamme :</label>
@@ -1852,7 +2079,7 @@ export default function App() {
                       </div>
                       <div className="border-t border-[#cbb094]/50 pt-1 mt-1 mb-1 w-full max-w-3xl">
                          <h3 className="font-black text-sm mb-1 flex items-center gap-2 justify-center text-[#5d4037] mt-2"><Plus size={14} /> Personnaliser l'accordage</h3>
-                         <div className="bg-[#dcc0a3]/80 p-3 rounded-xl border-2 border-[#cbb094] shadow-sm backdrop-blur-sm">
+                         <div className="bg-[#dcc0a3]/60 p-3 rounded-xl border-2 border-[#cbb094] shadow-sm backdrop-blur-md">
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="font-black mb-1 text-[#5d4037] border-b-2 border-[#5d4037]/20 pb-0.5 text-xs md:text-sm text-center">Main Gauche (G)</h4>
@@ -1872,7 +2099,7 @@ export default function App() {
                   // MAIN EDITOR CONTAINER - BG TRANSPARENT
                   <div className="flex w-full border border-[#cbb094]/50 rounded-lg shadow-sm animate-in fade-in duration-300 h-full flex-col bg-transparent">
                        {/* EDITOR TOOLBAR CONTAINER - SEMI OPAQUE */}
-                       <div className="bg-[#dcc0a3]/90 border-b border-[#cbb094] flex flex-col gap-1 p-1 z-20 shadow-sm flex-none h-auto backdrop-blur-sm">
+                       <div className="bg-[#dcc0a3]/70 border-b border-[#cbb094] flex flex-col gap-1 p-1 z-20 shadow-sm flex-none h-auto backdrop-blur-md">
                             
                             {/* Row 1: Title and Main Actions - COMPACT GAP */}
                             <div className="flex flex-col md:flex-row items-center justify-center gap-2 w-full relative mb-0.5">
@@ -1889,8 +2116,11 @@ export default function App() {
 
                                 {/* Right Actions - COMPACT */}
                                 <div className="flex gap-2">
+                                     <button onClick={handleNewProject} className="flex items-center gap-1 px-3 py-0.5 bg-[#e5c4a1] text-[#5d4037] border border-[#8d6e63] rounded shadow-md hover:bg-[#dcc0a3] transition-colors font-bold text-xs">
+                                         <FileText size={14} /> Nouveau
+                                     </button>
                                      <button onClick={() => { setSaveName(tabTitle); setSaveModalOpen(true); }} className={`flex items-center gap-1 px-3 py-0.5 bg-[#8d6e63] text-[#e5c4a1] rounded shadow-md hover:bg-[#6d4c41] transition-colors font-bold text-xs ${userRole !== 'admin' ? 'opacity-80' : ''}`}>
-                                         <Save size={14} /> Enregistrer ma tablature
+                                         <Save size={14} /> Enregistrer
                                      </button>
                                      <button onClick={() => setMyBlocksModalOpen(true)} className="flex items-center gap-1 px-3 py-0.5 bg-[#8d6e63] text-[#e5c4a1] rounded shadow-md hover:bg-[#6d4c41] transition-colors font-bold text-xs">
                                          <LayoutGrid size={14} /> Mes Blocs
@@ -2002,7 +2232,7 @@ export default function App() {
                        {/* Full Width Visualizer Container */}
                        <div className="flex-1 flex flex-col bg-transparent relative min-h-0">
                            {/* StringPad at the TOP - SEMI OPAQUE */}
-                           <div className="flex-none bg-[#dcc0a3]/90 z-10 shadow-sm relative pt-1 px-0 pb-0 backdrop-blur-sm">
+                           <div className="flex-none bg-[#dcc0a3]/70 z-10 shadow-sm relative pt-1 px-0 pb-0 backdrop-blur-md">
                                 <StringPad 
                                     onInsert={(stringId, finger, advanceTicks) => handleNoteAdd(stringId, finger, undefined, advanceTicks)}
                                     tuning={currentTuning}
@@ -2042,13 +2272,13 @@ export default function App() {
               {mainTab === 'media' && (
                   <div className="flex flex-col items-center justify-center h-full gap-8 animate-in fade-in duration-300 p-8 text-center">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
-                            <div className="bg-[#dcc0a3]/80 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-sm">
+                            <div className="bg-[#dcc0a3]/60 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-md">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><FileText size={32}/></div>
                                 <h3 className="font-bold text-lg">Partition PDF</h3>
                                 <p className="text-sm opacity-80">Format A4 imprimable avec diagrammes et annotations.</p>
                                 <button onClick={handleDownloadPDF} className="mt-auto px-6 py-2 bg-[#8d6e63] text-white font-bold rounded shadow hover:bg-[#6d4c41] flex items-center gap-2"><Download size={16}/> Télécharger PDF</button>
                             </div>
-                            <div className="bg-[#dcc0a3]/80 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-sm">
+                            <div className="bg-[#dcc0a3]/60 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-md">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><Headphones size={32}/></div>
                                 <h3 className="font-bold text-lg">Export Audio</h3>
                                 <p className="text-sm opacity-80">Fichier MP3 haute qualité (320kbps).</p>
@@ -2057,7 +2287,7 @@ export default function App() {
                                     <span>Télécharger MP3</span>
                                 </button>
                             </div>
-                            <div className="bg-[#dcc0a3]/80 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-sm">
+                            <div className="bg-[#dcc0a3]/60 p-6 rounded-xl border border-[#cbb094] shadow-md flex flex-col items-center gap-4 hover:scale-105 transition-transform backdrop-blur-md">
                                 <div className="w-16 h-16 bg-[#e5c4a1] rounded-full flex items-center justify-center text-[#8d6e63] shadow-inner"><Video size={32}/></div>
                                 <h3 className="font-bold text-lg">Export Vidéo</h3>
                                 <p className="text-sm opacity-80">Vidéo défilante (Format WebM).</p>

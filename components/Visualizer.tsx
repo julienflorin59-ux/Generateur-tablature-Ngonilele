@@ -193,7 +193,7 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
   const findStringAtX = (x: number, width: number) => {
      const centerX = width / 2;
      const spacing = getResponsiveSpacing(width);
-     let closestString = STRING_CONFIGS.find(s => s.hand === 'G') || STRING_CONFIGS[0];
+     let closestString = STRING_CONFIGS[0];
      let minDist = Infinity;
 
      STRING_CONFIGS.forEach(s => {
@@ -581,17 +581,32 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
       const gridRight = centerX + GRID_HALF_WIDTH;
 
       // 1. Background
-      // Pour l'export vidéo, on a besoin d'un fond solide. 
-      // Pour l'interface UI, on veut de la transparence pour voir le mandala/texture body.
-      if (isExporting) {
-           ctx.fillStyle = '#e5c4a1';
-           ctx.fillRect(0, 0, width, height);
-      } else {
-           ctx.clearRect(0, 0, width, height);
-           // MODIF: Fond solide sous la grille pour masquer le mandala
-           ctx.fillStyle = '#e5c4a1';
-           ctx.fillRect(gridLeft, 0, gridRight - gridLeft, height);
-      }
+      // CLEAR to Transparent first to show global background on sides
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Opaque Rectangle ONLY behind the grid WITH GRADIENT FADE
+      // We calculate exact stops to ensure labels (at -25px) are in the opaque zone
+      const bgFadePx = 30; // Length of the fade gradient
+      const bgMarginPx = 60; // Distance from grid edge to end of background
+      
+      const bgLeft = gridLeft - bgMarginPx;
+      const bgWidth = (gridRight - gridLeft) + (bgMarginPx * 2);
+      
+      // Create Gradient
+      const gradient = ctx.createLinearGradient(bgLeft, 0, bgLeft + bgWidth, 0);
+      
+      // Calculate fractional stops
+      const startSolid = bgFadePx / bgWidth;
+      const endSolid = 1 - (bgFadePx / bgWidth);
+      
+      // RGB #e5c4a1 = 229, 196, 161
+      gradient.addColorStop(0, 'rgba(229, 196, 161, 0)');
+      gradient.addColorStop(startSolid, 'rgba(229, 196, 161, 1)');
+      gradient.addColorStop(endSolid, 'rgba(229, 196, 161, 1)');
+      gradient.addColorStop(1, 'rgba(229, 196, 161, 0)');
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(bgLeft, 0, bgWidth, height);
       
       // 2. Highlight Bars (Drag or Hover)
       // Drag Highlight (Yellow)
@@ -603,7 +618,8 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
       // Grid Hover Highlight (Grey)
       else if (hoveredGridTickRef.current !== null) {
           const y = CANVAS_PADDING_TOP + ((hoveredGridTickRef.current - baseTickOffset) * TICK_HEIGHT) - scrollY;
-          ctx.fillStyle = '#000000'; // Noir pour la ligne témoin
+          // MODIF: Couleur Noire (Black) au lieu de gris transparent
+          ctx.fillStyle = '#000000'; 
           ctx.fillRect(gridLeft, y - 1, gridRight - gridLeft, 2);
       }
 
@@ -629,49 +645,63 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
            
            if (y >= -10 && y <= height + 10) {
                ctx.beginPath(); ctx.moveTo(gridLeft, y); ctx.lineTo(gridRight, y);
-               // MODIFICATION: Ligne principale en Marron Glacé (#8d6e63)
-               ctx.strokeStyle = '#8d6e63'; 
-               ctx.lineWidth = 1.5; ctx.stroke();
+               // MODIFICATION: Ligne de temps principale en marron (#5d4037) au lieu de noir
+               ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1.5; ctx.stroke();
                
                let label = "";
                if (t >= TICKS_COUNT_IN) {
                    const measureIndex = Math.floor((t - TICKS_COUNT_IN) / (12 * beatsPerMeasure)) + 1;
                    const beatInMeasure = (Math.floor((t - TICKS_COUNT_IN) / 12) % beatsPerMeasure) + 1;
                    label = `${beatInMeasure}`;
+                   
+                   // Ensure font is reset for main labels
+                   ctx.font = '10px sans-serif'; 
+                   
                    if (beatInMeasure === 1) {
                         ctx.fillStyle = '#8d6e63';
                         ctx.fillText(`M${measureIndex}`, gridLeft - 25, y);
                    }
-                   ctx.fillStyle = '#8d6e63'; // Aussi en Marron Glacé pour les numéros
+                   ctx.fillStyle = '#5d4037'; 
                    ctx.fillText(label, gridLeft - 10, y);
                }
            }
-           const drawSubLine = (offset: number, type: 'grey' | 'tight' | 'spaced', label: string) => {
+           
+           // MODIFICATION de la fonction de dessin des sous-lignes pour respecter les nouvelles règles
+           const drawSubLine = (offset: number, type: 'half' | 'quarter' | 'eighth', label: string) => {
                const ty = y + (offset * TICK_HEIGHT);
                if (ty < -10 || ty > height + 10) return;
                ctx.beginPath(); ctx.moveTo(gridLeft, ty); ctx.lineTo(gridRight, ty);
                
-               if (type === 'grey') {
-                   // MODIFICATION: Temps 1/2 en marron très fin (0.5px)
-                   ctx.strokeStyle = '#8d6e63';
-                   ctx.lineWidth = 0.5;
-               } else {
-                   // MODIFICATION: Temps 1/4 et 1/8 en marron (1px)
-                   ctx.strokeStyle = '#8d6e63';
-                   ctx.lineWidth = 1;
+               // Couleur commune (Marron clair)
+               ctx.strokeStyle = '#8d6e63';
+               ctx.lineWidth = 1;
+
+               if (type === 'half') {
+                   // 1/2 : Trait plein (pas de dash)
+                   ctx.setLineDash([]);
+               } else if (type === 'quarter') {
+                   // 1/4 : Pointillés ESPACÉS [1, 6]
+                   ctx.setLineDash([1, 6]);
+               } else if (type === 'eighth') {
+                   // 1/8 : Pointillés SERRÉS [1, 2]
+                   ctx.setLineDash([1, 2]);
                }
-               
-               ctx.setLineDash(type === 'tight' ? [1,2] : (type === 'spaced' ? [1,6] : []));
+
                ctx.stroke(); ctx.setLineDash([]);
+               
+               // RESTORED LABELS per user request
                if(label && t >= TICKS_COUNT_IN) { 
-                   ctx.fillStyle = '#5d4037'; // Labels secondaires restent foncé pour lisibilité
+                   ctx.fillStyle = '#5d4037'; 
                    ctx.textAlign = 'right';
+                   ctx.font = '9px sans-serif'; // Slightly smaller for subdivisions
                    ctx.fillText(label, gridLeft - 10, ty); 
                }
            }
-           drawSubLine(6, 'grey', "1/2");
-           drawSubLine(3, 'spaced', "1/4"); drawSubLine(9, 'spaced', "1/4"); // MODIF: 1/4 -> spaced
-           drawSubLine(1.5, 'tight', "1/8"); drawSubLine(4.5, 'tight', "1/8"); drawSubLine(7.5, 'tight', "1/8"); drawSubLine(10.5, 'tight', "1/8"); // MODIF: 1/8 -> tight
+           
+           // Appels mis à jour avec les nouveaux types sémantiques
+           drawSubLine(6, 'half', "1/2");
+           drawSubLine(3, 'quarter', "1/4"); drawSubLine(9, 'quarter', "1/4");
+           drawSubLine(1.5, 'eighth', "1/8"); drawSubLine(4.5, 'eighth', "1/8"); drawSubLine(7.5, 'eighth', "1/8"); drawSubLine(10.5, 'eighth', "1/8");
       }
 
       // 4. Strings
@@ -683,8 +713,8 @@ const Visualizer = forwardRef<VisualizerHandle, VisualizerProps>(({
           ctx.beginPath(); ctx.strokeStyle = noteColor; ctx.lineWidth = 2;
           ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
       });
-      // MODIFICATION: Ligne centrale en Marron Glacé (#8d6e63) au lieu de noir
-      ctx.beginPath(); ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 2;
+      // MODIFICATION: Barre verticale centrale en marron opaque
+      ctx.beginPath(); ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 2;
       ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height); ctx.stroke();
 
       // MASK: Count-In Zone Logic REMOVED.

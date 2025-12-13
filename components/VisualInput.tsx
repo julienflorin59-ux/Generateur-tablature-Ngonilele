@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { STRING_CONFIGS, NOTE_COLORS } from '../constants';
 import { Tuning } from '../types';
@@ -197,7 +196,7 @@ export const VisualInput: React.FC<VisualInputProps> = ({
                      </div>
                 </div>
                 {/* DIVIDER */}
-                <div className="w-[2px] bg-[#8d6e63] self-stretch shrink-0 mx-0.5 md:mx-1 opacity-20"></div>
+                <div className="w-[2px] bg-black self-stretch shrink-0 mx-0.5 md:mx-1 opacity-20"></div>
                 {/* MAIN DROITE */}
                 <div className="flex-1 flex flex-col justify-end min-w-0">
                      <h4 className="text-center font-bold text-[#8d6e63] mb-2 text-xs uppercase tracking-widest truncate">Main Droite</h4>
